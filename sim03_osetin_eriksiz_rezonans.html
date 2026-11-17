@@ -1,0 +1,55 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Өшетін және еріксіз тербеліс. Резонанс</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+let spring,mass,arrow,x=0,v=0,hist=[],trail,trailPos,N=220;
+function amp(Om,p){ return p.f0/Math.sqrt(Math.pow(p.w0*p.w0-Om*Om,2)+4*p.b*p.b*Om*Om); }
+function accel(t,x,v,p){ const F=p.mode==='forced'? p.f0*Math.cos(p.Om*t):0; return -2*p.b*v-p.w0*p.w0*x+F; }
+Sim.init({
+  lecture:'Дәріс 3 · Өшетін және еріксіз тербелістер', title:'Өшетін және еріксіз тербелістер. Резонанс',
+  formulas:['x″ + 2βx′ + ω<sub>0</sub>²x = f<sub>0</sub>cos Ωt','Өшетін: x = A<sub>0</sub>e<sup>−βt</sup>cos(ωt + φ<sub>0</sub>),&nbsp; ω = √(ω<sub>0</sub>² − β²)','Еріксіз: A(Ω) = f<sub>0</sub> / √[(ω<sub>0</sub>² − Ω²)² + 4β²Ω²]','Ω<sub>рез</sub> = √(ω<sub>0</sub>² − 2β²),&nbsp; λ = βT,&nbsp; Q = π/λ'],
+  symbols:'ω<sub>0</sub> — меншікті жиілік, β — өшу коэффициенті, Ω — сыртқы күш жиілігі, f<sub>0</sub> — күш амплитудасының массаға қатынасы, λ — өшудің логарифмдік декременті.',
+  controls:[
+    {id:'mode',type:'select',label:'Режим',value:'forced',options:[['forced','Еріксіз тербеліс (сыртқы периодты күш)'],['free','Өшетін тербеліс (еркін)']]},
+    {id:'w0',label:'Меншікті жиілік ω₀',min:2,max:10,step:0.1,value:6,unit:'рад/с',dec:1},
+    {id:'b',label:'Өшу коэффициенті β',min:0.05,max:3,step:0.05,value:0.4,unit:'1/с'},
+    {id:'Om',label:'Сыртқы жиілік Ω',min:0.5,max:14,step:0.05,value:3,unit:'рад/с',dec:2},
+    {id:'f0',label:'Күш амплитудасы f₀',min:1,max:30,step:1,value:10,unit:'см/с²',dec:0}
+  ],
+  readouts:[{id:'wd',label:'ω (өшетін), рад/с'},{id:'T',label:'Период T, с'},{id:'lam',label:'Декремент λ = βT'},{id:'Q',label:'Сапалылық Q'},{id:'Ar',label:'Резонанстағы A, см'},{id:'Wr',label:'Ω_рез, рад/с'},{id:'Aa',label:'A(Ω) орнықты, см'},{id:'x',label:'x, см'}],
+  plots:[{id:'x',title:'x(t)',xlabel:'Уақыт t, с',ylabel:'x, см'},{id:'r',title:'Резонанстық қисық A(Ω)',xlabel:'Сыртқы жиілік Ω, рад/с',ylabel:'A, см'}],
+  theory:'<p><b>Өшетін режим:</b> үйкеліс күшінен амплитуда e<sup>−βt</sup> заңымен кемиді. β-ны арттырғанда өшу жылдамдайды, ал β ≥ ω₀ болғанда тербеліс болмайды (апериодты қозғалыс).</p><p><b>Еріксіз режим:</b> Ω жиілігін ω₀-ге жақындатыңыз — амплитуда күрт өседі (резонанс). Өшу аз болған сайын шың биік әрі тар болады.</p>',
+  result:'<b>Бақылау:</b> резонанс Ω ≈ √(ω₀² − 2β²) жиілігінде байқалады. β → 0 болғанда A → ∞ (қызыл вертикаль сызық — Ω<sub>рез</sub>). Орнатылған режимде тербеліс жиілігі Ω-ға тең, ал амплитудасы A(Ω).',
+  camera:{r:15,th:1.25,ph:0.6,target:[2,2.5,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(16,-1.2));
+    const ceil=new THREE.Mesh(new THREE.BoxGeometry(5,0.3,2),new THREE.MeshPhongMaterial({color:0x8899aa})); ceil.position.set(0,6.2,0); scene.add(ceil);
+    spring=Sim.spring(0xffd24a,12); scene.add(spring);
+    mass=new THREE.Mesh(new THREE.BoxGeometry(1.2,1,1.2),new THREE.MeshPhongMaterial({color:0x2f7fe0})); scene.add(mass);
+    arrow=Sim.arrow(0xff5555,2,0.4,0.25); scene.add(arrow);
+    const g=new THREE.BufferGeometry(); trailPos=new Float32Array(N*3); g.setAttribute('position',new THREE.BufferAttribute(trailPos,3)); trail=new THREE.Line(g,new THREE.LineBasicMaterial({color:0x7fd4ff})); trail.frustumCulled=false; scene.add(trail); },
+  reset(c){ const p=c.params; x=p.mode==='free'?8:0; v=0; hist=[]; },
+  onChange(c,id){ if(id==='mode') c.S.reset(); },
+  frame(dt,c,run){
+    const S=c.S,p=S.params; if(run){ const n=Math.ceil(dt/0.002),h=dt/n; for(let i=0;i<n;i++){ const t=S.t;
+        const a1=accel(t,x,v,p); const x2=x+h/2*v, v2=v+h/2*a1, a2=accel(t+h/2,x2,v2,p); const x3=x+h/2*v2, v3=v+h/2*a2, a3=accel(t+h/2,x3,v3,p); const x4=x+h*v3, v4=v+h*a3, a4=accel(t+h,x4,v4,p);
+        x+=h/6*(v+2*v2+2*v3+v4); v+=h/6*(a1+2*a2+2*a3+a4); S.t+=h; hist.push({t:S.t,x:x}); } }
+    const t=S.t, wd2=p.w0*p.w0-p.b*p.b, wd=wd2>0?Math.sqrt(wd2):0, T=wd>0?2*Math.PI/wd:Infinity;
+    const Wr2=p.w0*p.w0-2*p.b*p.b, Wr=Wr2>0?Math.sqrt(Wr2):0, Ar=Wr2>0?p.f0/(2*p.b*Math.sqrt(p.w0*p.w0-p.b*p.b)):p.f0/(p.w0*p.w0);
+    const sc=0.45, cl=q=>Math.max(-3.6,Math.min(3.6,q)), ym=1+cl(x*sc); mass.position.set(0,ym,0); spring.set(0,6.05,0,0,ym+0.5,0,0.45);
+    const F=p.mode==='forced'?p.f0*Math.cos(p.Om*t):0; arrow.visible=p.mode==='forced'&&Math.abs(F)>0.05; if(arrow.visible){ arrow.position.set(0.9,ym,0); arrow.setDirection(new THREE.Vector3(0,Math.sign(F),0)); arrow.setLength(Math.abs(F)/30*3+0.2,0.35,0.22); }
+    while(hist.length&&hist[0].t<t-12) hist.shift(); const W=12;
+    for(let i=0;i<N;i++){ const h=hist[Math.max(0,hist.length-1-i*2)]; trailPos[i*3]=1.4+i*0.03; trailPos[i*3+1]=1+(h?cl(h.x*sc):0); trailPos[i*3+2]=0; } trail.geometry.attributes.position.needsUpdate=true;
+    const x0=Math.max(0,t-W), x1=Math.max(W,t); const step=Math.max(1,Math.floor(hist.length/400));
+    const hx=[],hy=[]; for(let i=0;i<hist.length;i+=step){hx.push(hist[i].t);hy.push(hist[i].x);}
+    const ser=[{x:hx,y:hy,color:'#0072c6'}]; if(p.mode==='free'){ const env=[],env2=[]; for(let i=0;i<hx.length;i++){env.push(8*Math.exp(-p.b*hx[i]));env2.push(-8*Math.exp(-p.b*hx[i]));} ser.push({x:hx,y:env,color:'#d6232a',dash:[5,4],w:1.3,label:'A₀e^(−βt)'}); ser.push({x:hx,y:env2,color:'#d6232a',dash:[5,4],w:1.3}); }
+    const lim=p.mode==='free'?10:Math.max(5,Math.min(100,amp(p.Om,p)*1.25)); S.plots.x.draw({xmin:x0,xmax:x1,ymin:-lim,ymax:lim,series:ser});
+    // резонанстық қисық
+    const rx=[],r1=[],r2=[],r3=[]; const Om_max=14; for(let i=0;i<=280;i++){ const O=0.2+i*(Om_max-0.2)/280; rx.push(O); r1.push(amp(O,p)); r2.push(amp(O,{w0:p.w0,b:p.b*2,f0:p.f0})); r3.push(amp(O,{w0:p.w0,b:p.b/2,f0:p.f0})); }
+    const ymax=Math.min(150,Math.max(...r1,...r2)*1.1); S.plots.r.draw({xmin:0.2,xmax:Om_max,ymin:0,ymax:ymax,series:[{x:rx,y:r3,color:'#9bb8d6',label:'β/2'},{x:rx,y:r2,color:'#c9a0a0',label:'2β'},{x:rx,y:r1,color:'#0072c6',w:2.5,label:'β'}],markers:[{x:p.Om,y:Math.min(amp(p.Om,p),ymax)}],vlines:Wr>0?[{x:Wr}]:[]});
+    S.setRO('wd',wd?wd.toFixed(3):'тербеліс жоқ'); S.setRO('T',isFinite(T)?T.toFixed(3):'∞'); S.setRO('lam',isFinite(T)?(p.b*T).toFixed(3):'—'); S.setRO('Q',isFinite(T)?(Math.PI/(p.b*T)).toFixed(2):'—');
+    S.setRO('Ar',Ar.toFixed(2)); S.setRO('Wr',Wr.toFixed(3)); S.setRO('Aa',amp(p.Om,p).toFixed(2)); S.setRO('x',x.toFixed(2)); S.tag('t = '+t.toFixed(2)+' с');
+  }
+});
+</script></body></html>

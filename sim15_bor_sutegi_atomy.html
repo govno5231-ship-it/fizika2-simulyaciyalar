@@ -1,0 +1,48 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Сутегі атомы: Бор моделі</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+const RH=1.0973731568e7, E1=-13.6057, HC=1239.84193, A0=0.0529177, VS=0.34; // VS: көрнекі масштаб
+let orbs=[],elec,phot,glowL;
+const En=n=>E1/(n*n); const rn=n=>n*n*VS*1.0;
+const SER={1:'Лайман (ультракүлгін)',2:'Бальмер (көрінетін)',3:'Пашен (инфрақызыл)',4:'Брэкет (инфрақызыл)',5:'Пфунд (инфрақызыл)',6:'Хэмфри (инфрақызыл)'};
+Sim.init({
+  lecture:'Дәріс 12 · Атом құрылысы', title:'Сутегі атомының Бор моделі: деңгейлер, ауысулар және спектр',
+  formulas:['r<sub>n</sub> = n²·a<sub>0</sub>,&nbsp; a<sub>0</sub> = 0,0529 нм','E<sub>n</sub> = −13,6 эВ / n²','Бор постулаты: hν = E<sub>n</sub> − E<sub>m</sub>','1/λ = R(1/m² − 1/n²),&nbsp; R = 1,097·10⁷ м⁻¹'],
+  symbols:'n — бас кванттық сан, r<sub>n</sub> — n-ші орбита радиусы, E<sub>n</sub> — энергия деңгейі, R — Ридберг тұрақтысы, m — төменгі деңгей нөмірі.',
+  controls:[{id:'ni',label:'Бастапқы деңгей n',min:1,max:6,step:1,value:3,unit:'',dec:0},{id:'nf',label:'Соңғы деңгей m',min:1,max:6,step:1,value:2,unit:'',dec:0},{id:'sp',label:'Анимация жылдамдығы',min:0.2,max:2,step:0.1,value:1,unit:'×',dec:1}],
+  readouts:[{id:'Ei',label:'E_n, эВ'},{id:'Ef',label:'E_m, эВ'},{id:'dE',label:'ΔE = |E_n − E_m|, эВ'},{id:'lam',label:'λ, нм'},{id:'ser',label:'Серия'},{id:'proc',label:'Үдеріс'},{id:'rn',label:'r_n, нм'},{id:'vn',label:'v_n, км/с'}],
+  plots:[{id:'lv',title:'Энергия деңгейлері E(n)',xlabel:'n',ylabel:'E, эВ'},{id:'sp',title:'Таңдалған серия сызықтары λ',xlabel:'λ, нм',ylabel:'салыстырмалы'}],
+  theory:'<p>Бор бойынша электрон тек рұқсат етілген орбиталарда (E<sub>n</sub> = −13,6/n² эВ) қозғалады және осы орбитада сәуле шығармайды. Жоғарғы деңгейден (n) төменгі деңгейге (m) өткенде фотон шығарылады: hν = E<sub>n</sub> − E<sub>m</sub>; кері ауысуда фотон жұтылады.</p><p>Төменгі деңгей m бір серияны анықтайды: m = 1 — Лайман, m = 2 — Бальмер (көрінетін), m = 3 — Пашен.</p>',
+  result:'<b>Тексеріңіз:</b> n = 3 → m = 2 ауысуы үшін λ ≈ 656 нм (Бальмердің Hα қызыл сызығы); n = 2 → m = 1: λ ≈ 121,6 нм. Ридберг формуласы мен ΔE = hc/λ бір нәтиже береді.',
+  camera:{r:22,th:0.55,ph:0.4,target:[0,0,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(30,-0.2));
+    for(let n=1;n<=6;n++){ const r=rn(n); const g=new THREE.RingGeometry(r-0.03,r+0.03,128); const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0x4477aa,side:2,transparent:true,opacity:0.7})); m.rotation.x=-Math.PI/2; scene.add(m); orbs.push(m); const l=Sim.label('n='+n,{size:0.55}); l.position.set(r*0.707,0.1,-r*0.707); scene.add(l); }
+    const nuc=new THREE.Mesh(new THREE.SphereGeometry(0.28,20,14),new THREE.MeshPhongMaterial({color:0xff4444,emissive:0x661111})); scene.add(nuc);
+    elec=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,12),new THREE.MeshPhongMaterial({color:0x66ccff,emissive:0x114466})); scene.add(elec);
+    phot=new THREE.Mesh(new THREE.SphereGeometry(0.22,12,8),new THREE.MeshBasicMaterial({color:0xffffff})); phot.visible=false; scene.add(phot); },
+  reset(c){ c.S._ph=0; },
+  frame(dt,c,run){
+    const S=c.S,p=S.params,THREE=c.THREE; let ni=Math.round(p.ni), nf=Math.round(p.nf); if(run) S._ph=(S._ph||0)+dt*p.sp; const cyc=(S._ph%6);
+    // 0-2: n_i орбитада, 2-3: ауысу, 3-6: n_f орбитада
+    let r,ang; const wi=1/(ni*ni*ni)*14, wf=1/(nf*nf*nf)*14; // Кеплер сияқты ω ~ 1/n³
+    S._a=(S._a||0); const w=cyc<2?wi:cyc<3?(wi+wf)/2:wf; if(run) S._a+=w*dt*p.sp; ang=S._a;
+    if(cyc<2) r=rn(ni); else if(cyc<3){ const u=(cyc-2); const s=u*u*(3-2*u); r=rn(ni)+(rn(nf)-rn(ni))*s; } else r=rn(nf);
+    elec.position.set(r*Math.cos(ang),0,-r*Math.sin(ang)); orbs.forEach((o,i)=>{ o.material.opacity=(i+1===ni||i+1===nf)?1:0.35; o.material.color.setHex(i+1===ni?0xffaa33:i+1===nf?0x44ddaa:0x4477aa); });
+    const dE=Math.abs(En(ni)-En(nf)); const lam=ni===nf?Infinity:HC/dE; const emit=ni>nf;
+    if(ni!==nf&&cyc>=2&&cyc<5){ phot.visible=true; const u=(cyc-2)/3; const col=(lam>=380&&lam<=780)?Sim.wavelengthRGB(lam):(lam<380?[0.6,0.3,1]:[0.7,0.1,0.1]); phot.material.color.setRGB(col[0],col[1],col[2]); const R0=rn(Math.max(ni,nf)); const dir=emit?1:-1; const d=emit? R0+u*9 : R0+(1-u)*9; phot.position.set(d*0.7,0.3,d*0.7); phot.scale.setScalar(1+0.3*Math.sin(S._ph*20)); } else phot.visible=false;
+    // сызықтар
+    const ser=[]; const xs=[],ys=[]; for(let n=1;n<=8;n++){ xs.push(n); ys.push(En(n)); }
+    S.plots.lv.draw({xmin:0.5,xmax:8,ymin:-14.5,ymax:0.5,series:[{x:xs,y:ys,color:'#0072c6'}],markers:[{x:ni,y:En(ni),color:'#e08a00'},{x:nf,y:En(nf),color:'#1aa86a'}]});
+    const lines=[]; for(let n=nf+1;n<=nf+9;n++){ lines.push({n,l:HC/Math.abs(En(n)-En(nf))}); }
+    const sps=lines.map(o=>({x:[o.l,o.l],y:[0,1],color:o.n===Math.max(ni,nf)?'#d6232a':'#7b8aa0',w:o.n===Math.max(ni,nf)?3:1.5,label:undefined}));
+    const lmax=Math.max(...lines.map(o=>o.l))*1.05, lmin=Math.min(...lines.map(o=>o.l))*0.9;
+    S.plots.sp.draw({xmin:Math.max(0,lmin-20),xmax:lmax+20,ymin:0,ymax:1.1,series:sps});
+    S.setRO('Ei',En(ni).toFixed(3)); S.setRO('Ef',En(nf).toFixed(3)); S.setRO('dE',dE.toFixed(4)); S.setRO('lam',isFinite(lam)?lam.toFixed(2):'—');
+    S.setRO('ser',ni===nf?'—':(SER[Math.min(ni,nf)]||'')); S.setRO('proc',ni===nf?'ауысу жоқ':emit?'фотон шығарылады':'фотон жұтылады'); S.setRO('rn',(ni*ni*A0).toFixed(3)); S.setRO('vn',(2187.69/ni).toFixed(1));
+    S.tag('n = '+ni+' → m = '+nf+(isFinite(lam)?' · λ = '+lam.toFixed(1)+' нм':''));
+  }
+});
+</script></body></html>

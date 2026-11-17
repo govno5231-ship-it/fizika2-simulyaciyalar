@@ -1,0 +1,54 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Серіппелі маятник — гармониялық тербеліс</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+let spring, mass, trail, trailPos, hist=[], N=220, T0=1;
+Sim.init({
+  lecture:'Дәріс 2 · Тербелістер', title:'Серіппелі маятник: гармониялық тербеліс',
+  formulas:['x(t) = A·cos(ω<sub>0</sub>t + φ<sub>0</sub>)','ω<sub>0</sub> = √(k/m),&nbsp;&nbsp; T = 2π√(m/k)','E<sub>к</sub> = mv²/2,&nbsp; E<sub>п</sub> = kx²/2,&nbsp; E = kA²/2'],
+  symbols:'x — ауытқу, A — амплитуда, ω<sub>0</sub> — циклдік жиілік, φ<sub>0</sub> — бастапқы фаза, T — период, k — серіппенің қатаңдығы, m — масса.',
+  controls:[
+    {id:'m',label:'Масса m',min:0.1,max:2,step:0.05,value:0.5,unit:'кг'},
+    {id:'k',label:'Серіппе қатаңдығы k',min:5,max:100,step:1,value:20,unit:'Н/м',dec:0},
+    {id:'A',label:'Амплитуда A',min:1,max:20,step:0.5,value:10,unit:'см',dec:1},
+    {id:'ph',label:'Бастапқы фаза φ₀',min:-3.14,max:3.14,step:0.01,value:0,unit:'рад'},
+    {id:'ts',label:'Уақыт масштабы',min:0.1,max:2,step:0.1,value:1,unit:'×',dec:1}
+  ],
+  readouts:[{id:'w',label:'ω₀, рад/с'},{id:'T',label:'Период T, с'},{id:'nu',label:'Жиілік ν, Гц'},{id:'x',label:'Ауытқу x, см'},{id:'v',label:'Жылдамдық v, м/с'},{id:'E',label:'Толық энергия E, Дж'},{id:'Ek',label:'Кинетикалық E_к, Дж'},{id:'Ep',label:'Потенциалдық E_п, Дж'}],
+  plots:[{id:'x',title:'Ауытқу x(t)',xlabel:'Уақыт t, с',ylabel:'x, см'},{id:'e',title:'Энергия',xlabel:'Уақыт t, с',ylabel:'Энергия, мДж'}],
+  theory:'<p>Серіппелі маятник — серпімділік күші әсерінен гармониялық тербеліс жасайтын жүйе. Қозғалыс теңдеуі <b>mx″ + kx = 0</b>, оның шешімі — косинус заңы. Период тек <b>m</b> мен <b>k</b>-ға тәуелді, амплитудаға тәуелді емес.</p><p>Масса мен қатаңдықты өзгертіп, периодтың қалай өзгеретінін бақылаңыз. Амплитуданы өзгерткенде период тұрақты қалады.</p>',
+  result:'<b>Қорытынды:</b> максимал ауытқуда E<sub>п</sub> = E, E<sub>к</sub> = 0; тепе-теңдік қалпында E<sub>к</sub> = E. Толық энергия E = kA²/2 тұрақты (үйкеліс жоқ). Массаны 4 есе арттырсақ, период 2 есе артады.',
+  camera:{r:15,th:1.25,ph:0.6,target:[2,2.5,0]},
+  setup(c){
+    const {scene,THREE}=c; scene.add(Sim.grid(16,-1.2));
+    const ceil=new THREE.Mesh(new THREE.BoxGeometry(5,0.3,2),new THREE.MeshPhongMaterial({color:0x8899aa})); ceil.position.set(0,6.2,0); scene.add(ceil);
+    spring=Sim.spring(0xffd24a,12); scene.add(spring);
+    mass=new THREE.Mesh(new THREE.BoxGeometry(1.2,1,1.2),new THREE.MeshPhongMaterial({color:0xe5483d})); scene.add(mass);
+    const eq=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,2.6),new THREE.MeshBasicMaterial({color:0x66ffcc})); eq.position.set(0,1,0); scene.add(eq);
+    const lb=Sim.label('тепе-теңдік',{size:0.7}); lb.position.set(-1.8,1,0); scene.add(lb);
+    const g=new THREE.BufferGeometry(); trailPos=new Float32Array(N*3); g.setAttribute('position',new THREE.BufferAttribute(trailPos,3));
+    trail=new THREE.Line(g,new THREE.LineBasicMaterial({color:0x7fd4ff})); trail.frustumCulled=false; scene.add(trail);
+    const ax=new THREE.Mesh(new THREE.BoxGeometry(6.4,0.03,0.03),new THREE.MeshBasicMaterial({color:0x5588aa})); ax.position.set(4.4,1,0); scene.add(ax);
+  },
+  reset(c){ hist=[]; },
+  frame(dt,c,run){
+    const S=c.S,p=S.params; if(run) S.t+=dt*p.ts;
+    const w=Math.sqrt(p.k/p.m), T=2*Math.PI/w, A=p.A/100, t=S.t;
+    const x=A*Math.cos(w*t+p.ph), v=-A*w*Math.sin(w*t+p.ph), Ek=0.5*p.m*v*v, Ep=0.5*p.k*x*x, E=0.5*p.k*A*A;
+    const sc=4/0.20; const ym=1+x*sc;
+    mass.position.set(0,ym,0); spring.set(0,6.05,0,0,ym+0.5,0,0.45);
+    if(run||!hist.length){ hist.push({t,x,Ek,Ep}); }
+    const W=4*T; while(hist.length&&hist[0].t<t-W) hist.shift();
+    for(let i=0;i<N;i++){ const h=hist[hist.length-1-i]; const hh=h||hist[hist.length-1]; trailPos[i*3]=1.2+i*0.03; trailPos[i*3+1]=1+(hh?hh.x*sc:0); trailPos[i*3+2]=0; }
+    trail.geometry.attributes.position.needsUpdate=true;
+    S.setRO('w',w.toFixed(2)); S.setRO('T',T.toFixed(3)); S.setRO('nu',(w/2/Math.PI).toFixed(3)); S.setRO('x',(x*100).toFixed(2)); S.setRO('v',v.toFixed(3));
+    S.setRO('E',E.toFixed(4)); S.setRO('Ek',Ek.toFixed(4)); S.setRO('Ep',Ep.toFixed(4));
+    const x0=Math.max(0,t-W), x1=Math.max(W,t);
+    S.plots.x.draw({xmin:x0,xmax:x1,ymin:-20,ymax:20,series:[{x:hist.map(h=>h.t),y:hist.map(h=>h.x*100),color:'#0072c6'}],markers:[{x:t,y:x*100}]});
+    S.plots.e.draw({xmin:x0,xmax:x1,ymin:0,ymax:Math.max(1e-6,E*1000*1.1),series:[{x:hist.map(h=>h.t),y:hist.map(h=>h.Ek*1000),color:'#d6232a',label:'E_к'},{x:hist.map(h=>h.t),y:hist.map(h=>h.Ep*1000),color:'#1a8f3c',label:'E_п'},{x:[x0,x1],y:[E*1000,E*1000],color:'#14233a',dash:[5,4],w:1.5,label:'E'}]});
+    S.tag('t = '+t.toFixed(2)+' с');
+  }
+});
+</script></body></html>

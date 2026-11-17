@@ -1,0 +1,61 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Тербелістерді қосу. Соғу және Лиссажу фигуралары</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+let grp, dot1,dot2,dot3, lines=[], lis, TW=8;
+function mk(color,n){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(n*3),3)); const l=new THREE.Line(g,new THREE.LineBasicMaterial({color})); l.frustumCulled=false; return l; }
+function setLine(l,arr){ const a=l.geometry.attributes.position.array; for(let i=0;i<arr.length;i++){ a[i*3]=arr[i][0];a[i*3+1]=arr[i][1];a[i*3+2]=arr[i][2]; } l.geometry.attributes.position.needsUpdate=true; }
+Sim.init({
+  lecture:'Дәріс 3 · Тербелістерді қосу', title:'Тербелістерді қосу: соғу және Лиссажу фигуралары',
+  formulas:['x<sub>1</sub> = A<sub>1</sub>cos(ω<sub>1</sub>t),&nbsp; x<sub>2</sub> = A<sub>2</sub>cos(ω<sub>2</sub>t + φ)','Бір бағытта, ω<sub>1</sub> = ω<sub>2</sub>: &nbsp;A² = A<sub>1</sub>² + A<sub>2</sub>² + 2A<sub>1</sub>A<sub>2</sub>cos φ','Соғу жиілігі: ω<sub>с</sub> = |ω<sub>1</sub> − ω<sub>2</sub>|','Перпендикуляр: x = A<sub>1</sub>cos ω<sub>1</sub>t,&nbsp; y = A<sub>2</sub>cos(ω<sub>2</sub>t + φ)'],
+  controls:[
+    {id:'mode',type:'select',label:'Қосу түрі',value:'same',options:[['same','Бір бағыттағы тербелістер (соғу)'],['lis','Өзара перпендикуляр тербелістер (Лиссажу)']]},
+    {id:'A1',label:'Амплитуда A₁',min:0.5,max:3,step:0.1,value:2,unit:'см',dec:1},
+    {id:'A2',label:'Амплитуда A₂',min:0.5,max:3,step:0.1,value:2,unit:'см',dec:1},
+    {id:'w1',label:'Жиілік ω₁',min:1,max:12,step:0.1,value:6,unit:'рад/с',dec:1},
+    {id:'w2',label:'Жиілік ω₂',min:1,max:12,step:0.1,value:7,unit:'рад/с',dec:1},
+    {id:'ph',label:'Фазалар айырымы φ',min:0,max:6.28,step:0.02,value:0,unit:'рад'}
+  ],
+  readouts:[{id:'a',label:'Нәтиже амплитудасы'},{id:'b',label:'Соғу жиілігі ω_с, рад/с'},{id:'c',label:'Соғу периоды, с'},{id:'d',label:'Қатынас ω₁ : ω₂'}],
+  plots:[{id:'p1',title:'Тербелістер',xlabel:'Уақыт t, с',ylabel:'x, см'},{id:'p2',title:'Нәтижелік тербеліс / траектория',xlabel:'',ylabel:''}],
+  theory:'<p>Бір бағытта жиіліктері жақын тербелістер қосылғанда амплитудасы периодты өзгеретін <b>соғу</b> пайда болады: A<sub>макс</sub> = A₁ + A₂, A<sub>мин</sub> = |A₁ − A₂|.</p><p>Өзара перпендикуляр тербелістерде траекторияның түрі жиіліктер қатынасы мен фазалар айырымына тәуелді: ω₁ = ω₂, φ = 0 — түзу; φ = π/2 және A₁ = A₂ — шеңбер.</p>',
+  result:'<b>Тексеріңіз:</b> ω₁ = ω₂ етіп, φ = 0 және φ = π мәндерін салыстырыңыз (күшею және әлсіреу). Лиссажу режимінде ω₁ : ω₂ = 1 : 2 болғанда «сегіздік» пайда болады.',
+  camera:{r:22,th:1.15,ph:0.45,target:[3,0,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(24,-9)); lines=[mk(0xffaa33,300),mk(0x66ddff,300),mk(0xff4466,300),mk(0x7fff9f,1200)]; lines.forEach(l=>scene.add(l));
+    [0xffaa33,0x66ddff,0xff4466,0x7fff9f].forEach((col,i)=>{ const m=new THREE.Mesh(new THREE.SphereGeometry(0.22,16,12),new THREE.MeshBasicMaterial({color:col})); m.name='d'+i; scene.add(m); lines[i].dot=m; });
+    const ax=new THREE.Mesh(new THREE.BoxGeometry(0.03,8,0.03),new THREE.MeshBasicMaterial({color:0x5588aa})); scene.add(ax); },
+  reset(c){},
+  frame(dt,c,run){
+    const S=c.S,p=S.params; if(run) S.t+=dt; const t=S.t;
+    const same=p.mode==='same'; const sc=1.2;
+    const f1=u=>p.A1*Math.cos(p.w1*u), f2=u=>p.A2*Math.cos(p.w2*u+p.ph);
+    const t0=Math.max(0,t-TW), t1=Math.max(TW,t);
+    if(same){
+      const rows=[[f1,4,0],[f2,0,1],[u=>f1(u)+f2(u),-4,2]];
+      lines[3].visible=false; lines[3].dot.visible=false;
+      for(let r=0;r<3;r++){ const arr=[]; for(let i=0;i<300;i++){ const u=t0+(t1-t0)*i/299; arr.push([ (u-t0)/(t1-t0)*14-4, rows[r][0](u)*sc*(r==2?0.7:1)+rows[r][1]*1.2, 0]); } lines[r].visible=true; setLine(lines[r],arr);
+        const u=t; const xx=(u-t0)/(t1-t0)*14-4; lines[r].dot.visible=true; lines[r].dot.position.set(xx,rows[r][0](u)*sc*(r==2?0.7:1)+rows[r][1]*1.2,0); }
+      const xs=[],y1=[],y2=[],ys=[]; for(let i=0;i<400;i++){ const u=t0+(t1-t0)*i/399; xs.push(u);y1.push(f1(u));y2.push(f2(u));ys.push(f1(u)+f2(u)); }
+      S.plots.p1.draw({xmin:t0,xmax:t1,ymin:-3.2,ymax:3.2,series:[{x:xs,y:y1,color:'#e08a00',label:'x₁'},{x:xs,y:y2,color:'#1aa6cc',label:'x₂'}]});
+      const dw=Math.abs(p.w1-p.w2); const env=[],envn=[]; const tt=[];
+      const Amax=p.A1+p.A2, Amin=Math.abs(p.A1-p.A2);
+      const series=[{x:xs,y:ys,color:'#d6232a',label:'x₁+x₂'}];
+      if(dw>0.02&&Math.abs(p.A1-p.A2)<1e-9){ const e=xs.map(u=>2*p.A1*Math.cos(dw*u/2)); series.push({x:xs,y:e,color:'#555',dash:[5,4],w:1.2}); series.push({x:xs,y:e.map(v=>-v),color:'#555',dash:[5,4],w:1.2}); }
+      S.plots.p2.draw({xmin:t0,xmax:t1,ymin:-(Amax*1.1),ymax:Amax*1.1,series});
+      let Ares = dw<1e-6? Math.sqrt(p.A1*p.A1+p.A2*p.A2+2*p.A1*p.A2*Math.cos(p.ph)) : null;
+      S.setRO('a',Ares!=null?Ares.toFixed(3)+' см':'A: '+Amin.toFixed(2)+' … '+Amax.toFixed(2)+' см'); S.setRO('b',dw.toFixed(2)); S.setRO('c',dw>1e-6?(2*Math.PI/dw).toFixed(2):'∞');
+    } else {
+      lines[0].visible=lines[1].visible=lines[2].visible=false; lines.slice(0,3).forEach(l=>l.dot.visible=false); lines[3].visible=true; lines[3].dot.visible=true;
+      const arr=[]; const Tmax=Math.min(200,12*Math.PI*2/Math.min(p.w1,p.w2)); for(let i=0;i<1200;i++){ const u=Tmax*i/1199; arr.push([f1(u)*sc*1.6+3,f2(u)*sc*1.6,0]); } setLine(lines[3],arr);
+      lines[3].dot.position.set(f1(t)*sc*1.6+3,f2(t)*sc*1.6,0);
+      const xs=[],y1=[],y2=[]; for(let i=0;i<400;i++){ const u=t0+(t1-t0)*i/399; xs.push(u);y1.push(f1(u));y2.push(f2(u)); }
+      S.plots.p1.draw({xmin:t0,xmax:t1,ymin:-3.2,ymax:3.2,series:[{x:xs,y:y1,color:'#e08a00',label:'x(t)'},{x:xs,y:y2,color:'#1aa6cc',label:'y(t)'}]});
+      S.plots.p2.draw({xmin:-3.2,xmax:3.2,ymin:-3.2,ymax:3.2,series:[{x:arr.map(a=>(a[0]-3)/(sc*1.6)),y:arr.map(a=>a[1]/(sc*1.6)),color:'#d6232a'}],markers:[{x:f1(t),y:f2(t)}]});
+      S.setRO('a','—'); S.setRO('b','—'); S.setRO('c','—');
+    }
+    S.setRO('d',(p.w1/p.w2).toFixed(3)); S.tag('t = '+t.toFixed(2)+' с');
+  }
+});
+</script></body></html>

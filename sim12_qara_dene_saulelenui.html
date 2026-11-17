@@ -1,0 +1,42 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Абсолют қара дененің сәулеленуі</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+const h=6.62607015e-34,c0=2.99792458e8,kB=1.380649e-23,sig=5.670374e-8,bW=2.897772e-3, NB=60;
+let bars=[],sphere,glow;
+const planck=(l,T)=> 2*Math.PI*h*c0*c0/Math.pow(l,5)/(Math.exp(h*c0/(l*kB*T))-1);
+const rj=(l,T)=> 2*Math.PI*c0*kB*T/Math.pow(l,4);
+function bbColor(T){ const t=T/100; let r,g,b; if(t<=66){r=255;g=99.47*Math.log(t)-161.12;} else {r=329.7*Math.pow(t-60,-0.1332);g=288.12*Math.pow(t-60,-0.0755);} if(t>=66)b=255; else if(t<=19)b=0; else b=138.52*Math.log(t-10)-305.04; const cl=v=>Math.max(0,Math.min(255,v))/255; return [cl(r),cl(g),cl(b)]; }
+Sim.init({
+  lecture:'Дәріс 10 · Жылулық сәуле шығару', title:'Абсолют қара дененің сәуле шығаруы: Планк, Вин, Стефан–Больцман',
+  formulas:['Планк формуласы: r<sub>λ,T</sub> = (2πhc²/λ⁵)·1/(e<sup>hc/λkT</sup> − 1)','Стефан–Больцман заңы: R = σT⁴,&nbsp; σ = 5,67·10⁻⁸ Вт/(м²·К⁴)','Виннің ығысу заңы: λ<sub>макс</sub>·T = b,&nbsp; b = 2,898·10⁻³ м·К','Рэлей–Джинс: r<sub>λ,T</sub> = 2πckT/λ⁴ (ұзын толқындарда ғана дұрыс)'],
+  symbols:'T — абсолют температура, λ — толқын ұзындығы, h — Планк тұрақтысы, k — Больцман тұрақтысы, c — жарық жылдамдығы.',
+  controls:[{id:'T',label:'Температура T',min:500,max:8000,step:50,value:5800,unit:'К',dec:0},{id:'rj',type:'select',label:'Рэлей–Джинс қисығы',value:'on',options:[['on','Көрсету (ультракүлгін апаты)'],['off','Жасыру']]}],
+  readouts:[{id:'lm',label:'λ_макс = b/T, нм'},{id:'R',label:'R = σT⁴, МВт/м²'},{id:'rr',label:'R(T)/R(300 К)'},{id:'col',label:'Дене түсі'},{id:'rmax',label:'r_макс, кВт/(м²·нм)'}],
+  plots:[{id:'s',title:'Сәуле шығарғыштық қабілет r(λ)',xlabel:'λ, нм',ylabel:'r, кВт/(м²·нм)'}],
+  theory:'<p>Абсолют қара дене өзіне түскен сәулені толық жұтады. Оның сәуле шығару спектрі тек температураға тәуелді. Температура артқанда: 1) толық энергетикалық жарқырау T⁴-қа пропорционал артады; 2) спектр максимумы қысқа толқындарға ығысады (Вин заңы).</p><p>Классикалық Рэлей–Джинс формуласы қысқа толқындарда шексіздікке кетеді («ультракүлгін апаты»). Планктың кванттық гипотезасы (E = hν) тәжірибемен толық сәйкес келеді.</p>',
+  result:'<b>Бақылау:</b> T = 5800 К кезінде λ<sub>макс</sub> ≈ 500 нм (көрінетін жарық, Күн). T = 3000 К болғанда максимум инфрақызыл аймақта (≈ 966 нм), дене қызыл-сарғыш түсті. Температураны екі есе арттырсақ, R 16 есе артады.',
+  camera:{r:20,th:1.2,ph:0.6,target:[0,2,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(26,0));
+    sphere=new THREE.Mesh(new THREE.SphereGeometry(2.2,32,24),new THREE.MeshBasicMaterial({color:0xffaa00})); sphere.position.set(-9,3,0); scene.add(sphere);
+    glow=new THREE.Mesh(new THREE.SphereGeometry(2.9,32,24),new THREE.MeshBasicMaterial({color:0xffaa00,transparent:true,opacity:0.18})); glow.position.copy(sphere.position); scene.add(glow);
+    for(let i=0;i<NB;i++){ const m=new THREE.Mesh(new THREE.BoxGeometry(0.22,1,0.6),new THREE.MeshPhongMaterial({color:0x88aaff})); scene.add(m); bars.push(m); }
+    const l1=Sim.label('сәуле шығару спектрі (λ: 100 → 3000 нм)',{size:0.8}); l1.position.set(5,-0.8,0); scene.add(l1);
+    const vis=new THREE.Mesh(new THREE.BoxGeometry(0.22*NB/2.9*0.4,0.05,0.7),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.0})); scene.add(vis);
+  },
+  reset(c){},
+  frame(dt,c,run){
+    const S=c.S,p=S.params,T=p.T; const lmin=100e-9,lmax=3000e-9; let pk=0; const xs=[],ys=[],yr=[];
+    for(let i=0;i<=400;i++){ const l=lmin+(lmax-lmin)*i/400; xs.push(l*1e9); const v=planck(l,T)*1e-9*1e-3; ys.push(v); yr.push(Math.min(rj(l,T)*1e-9*1e-3,1e9)); pk=Math.max(pk,v); }
+    const ser=[{x:xs,y:ys,color:'#d6232a',label:'Планк',w:2.5}]; if(p.rj==='on') ser.push({x:xs,y:yr,color:'#0072c6',dash:[6,4],label:'Рэлей–Джинс'});
+    S.plots.s.draw({xmin:100,xmax:3000,ymin:0,ymax:pk*1.3,series:ser,vlines:[{x:bW/T*1e9,color:'#1a8f3c'}]});
+    for(let i=0;i<NB;i++){ const l=lmin+(lmax-lmin)*(i+0.5)/NB; const v=planck(l,T)*1e-9*1e-3; const H=Math.max(0.02,v/pk*8); bars[i].scale.y=H; bars[i].position.set(-4+i*0.24,H/2,0); const nm=l*1e9; const rgb=(nm>=380&&nm<=780)?Sim.wavelengthRGB(nm):(nm<380?[0.5,0.3,0.9]:[0.45,0.1,0.1]); bars[i].material.color.setRGB(rgb[0],rgb[1],rgb[2]); }
+    const col=bbColor(T), br=Math.min(1,0.25+0.75*Math.pow(T/6000,0.5)); sphere.material.color.setRGB(col[0]*br,col[1]*br,col[2]*br); glow.material.color.setRGB(col[0],col[1],col[2]); glow.material.opacity=0.08+0.22*Math.min(1,T/6000); glow.scale.setScalar(1+0.03*Math.sin(S.t*3)); if(run) S.t+=dt;
+    const R=sig*Math.pow(T,4); const lm=bW/T*1e9;
+    S.setRO('lm',lm.toFixed(1)); S.setRO('R',(R/1e6).toFixed(3)); S.setRO('rr',(Math.pow(T/300,4)).toExponential(2)); S.setRO('col',T<1000?'күңгірт қызыл':T<2000?'қызыл':T<3500?'қызыл-сарғыш':T<5000?'сарғыш':T<6500?'сарғыш-ақ':'ақ-көгілдір'); S.setRO('rmax',pk.toFixed(1));
+    S.tag('T = '+T+' К');
+  }
+});
+</script></body></html>

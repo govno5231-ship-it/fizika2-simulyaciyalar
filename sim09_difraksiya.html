@@ -1,0 +1,59 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Жарық дифракциясы: саңылау және дифракциялық тор</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+let scrCv,scrTex,rays=[],beam,gratingBars=[];
+function sinc(b){ return Math.abs(b)<1e-9?1:Math.sin(b)/b; }
+function Iof(s,p){ const lam=p.lam*1e-9,d=p.dd*1e-6,a=(p.mode==='grating'?Math.min(p.a,p.dd*0.9):p.a)*1e-6; const b=Math.PI*a*s/lam; let I=sinc(b)**2;
+  if(p.mode==='grating'){ const dl=Math.PI*d*s/lam; const den=Math.sin(dl); const f=Math.abs(den)<1e-7? 1 : Math.sin(p.N*dl)/(p.N*den); I*=f*f; } return I; }
+function swin(p){ const lam=p.lam*1e-9; return p.mode==='grating'? Math.min(0.99,3.6*lam/(p.dd*1e-6)) : Math.min(0.99,4.6*lam/(p.a*1e-6)); }
+Sim.init({
+  lecture:'Дәріс 9 · Жарық дифракциясы', title:'Жарық дифракциясы: Фраунгофер дифракциясы және дифракциялық тор',
+  formulas:['Бір саңылау: I = I<sub>0</sub>(sin β / β)²,&nbsp; β = πa·sin θ/λ','Минимум: a·sin θ = ±mλ,&nbsp; m = 1, 2, 3, …','Дифракциялық тор: d·sin θ = ±mλ (бас максимумдар)','Тор: I = I<sub>0</sub>(sin β/β)²·[sin(Nδ)/(N sin δ)]²,&nbsp; δ = πd·sin θ/λ'],
+  symbols:'a — саңылау ені, d — тор периоды, N — штрихтар саны, θ — дифракция бұрышы, m — спектр реті.',
+  controls:[
+    {id:'mode',type:'select',label:'Тосқауыл',value:'slit',options:[['slit','Бір саңылау'],['grating','Дифракциялық тор']]},
+    {id:'lam',label:'Толқын ұзындығы λ',min:400,max:700,step:5,value:550,unit:'нм',dec:0},
+    {id:'a',label:'Саңылау ені a',min:1,max:30,step:0.5,value:5,unit:'мкм',dec:1},
+    {id:'dd',label:'Тор периоды d',min:6,max:40,step:1,value:15,unit:'мкм',dec:0},
+    {id:'N',label:'Штрихтар саны N',min:2,max:20,step:1,value:6,unit:'',dec:0}
+  ],
+  readouts:[{id:'t1',label:'1-ші минимум/максимум θ₁, °'},{id:'w',label:'Орталық максимум ені, °'},{id:'mm',label:'Көрінетін максимум реті'},{id:'ang',label:'Бұрыштық дисперсия D=m/(d cos θ), 1/мкм'}],
+  plots:[{id:'i',title:'Қарқындылық I(sin θ)',xlabel:'sin θ',ylabel:'I / I₀'}],
+  theory:'<p>Дифракция — толқынның кедергіні орағытып өтуі. Гюйгенс–Френель принципі бойынша саңылаудың әр нүктесі екінші ретті толқын көзі, ал олардың интерференциясы экранда максимум мен минимумдарды береді.</p><p>Саңылауды тарылтқанда (a кемісе) орталық максимум кеңейеді. Дифракциялық торда N көбейген сайын бас максимумдар жіңішкеріп, олардың арасында N−2 әлсіз қосымша максимум пайда болады.</p>',
+  result:'<b>Бақылау:</b> а-ны кішірейтсеңіз, суреттегі центрлік жолақ кеңейеді; тор режимінде d·sin θ = mλ шартымен максимумдар орналасады; N артқанда олар сүйірленеді. Бейне көрінісі жалпы масштабқа келтірілген, ал оське сан мәндері нақты.',
+  camera:{r:34,th:0.7,ph:1.3,target:[10,0,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(40,-0.1));
+    scrCv=document.createElement('canvas'); scrCv.width=16; scrCv.height=900; scrTex=new THREE.CanvasTexture(scrCv);
+    const scr=new THREE.Mesh(new THREE.PlaneGeometry(1.6,20),new THREE.MeshBasicMaterial({map:scrTex,side:2})); scr.rotation.x=-Math.PI/2; scr.position.set(24,0.02,0); scene.add(scr);
+    beam=new THREE.Mesh(new THREE.BoxGeometry(14,0.15,1.2),new THREE.MeshBasicMaterial({color:0xffee88,transparent:true,opacity:0.5})); beam.position.set(-7,0.1,0); scene.add(beam);
+    for(let i=0;i<30;i++){ const m=new THREE.Mesh(new THREE.BoxGeometry(0.4,1.2,1),new THREE.MeshPhongMaterial({color:0x889aaa})); m.visible=false; scene.add(m); gratingBars.push(m); }
+    for(let i=0;i<19;i++){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3)); const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.55})); l.frustumCulled=false; scene.add(l); rays.push(l); }
+    const lb=Sim.label('экран',{size:0.9}); lb.position.set(24,1.8,-11); scene.add(lb);
+  },
+  reset(c){ },
+  frame(dt,c,run){
+    const S=c.S,p=S.params; const sw=swin(p); const key=[p.mode,p.lam,p.a,p.dd,p.N].join(); const rgb=Sim.wavelengthRGB(p.lam);
+    if(S._k!==key){ S._k=key; const g=scrCv.getContext('2d'),W=scrCv.width,H=scrCv.height,img=g.createImageData(W,H);
+      for(let j=0;j<H;j++){ const s=sw-2*sw*j/(H-1); const I=Math.pow(Iof(s,p),0.5); for(let i=0;i<W;i++){ const o=(j*W+i)*4; img.data[o]=rgb[0]*255*I; img.data[o+1]=rgb[1]*255*I; img.data[o+2]=rgb[2]*255*I; img.data[o+3]=255; } } g.putImageData(img,0,0); scrTex.needsUpdate=true;
+      // тосқауыл
+      gratingBars.forEach(m=>m.visible=false); const n=p.mode==='grating'?p.N:1; const pitch=0.9, wslit=Math.max(0.12,p.a/30*0.7);
+      if(p.mode==='slit'){ const bw=9, aw=Math.max(0.15,p.a/30*3); const b1=gratingBars[0],b2=gratingBars[1]; const h=(bw*2+aw); b1.visible=b2.visible=true; b1.scale.set(1,1,bw/1); b2.scale.set(1,1,bw/1); b1.position.set(0,0.5,-(aw/2+bw/2)); b2.position.set(0,0.5,aw/2+bw/2); }
+      else { const total=n*pitch; for(let i=0;i<=n;i++){ const m=gratingBars[i]; if(!m) continue; m.visible=true; m.scale.set(1,1,i===0||i===n?8/1:(pitch-wslit)/1); m.position.set(0,0.5,(i===0?-(total/2+4):i===n?(total/2+4):-total/2+pitch*i-pitch/2)); } }
+      // сәулелер: максимумдар/минимумдар бағыты
+      rays.forEach(r=>r.visible=false); let ri=0; const lam=p.lam*1e-9; const dirs=[];
+      if(p.mode==='slit'){ for(let m=-4;m<=4;m++){ if(!m) continue; const s=m*lam/(p.a*1e-6); if(Math.abs(s)<sw) dirs.push([s,0x66aaff]); } dirs.push([0,0xffee88]); }
+      else { for(let m=-6;m<=6;m++){ const s=m*lam/(p.dd*1e-6); if(Math.abs(s)<sw) dirs.push([s,m===0?0xffee88:0xffffff]); } }
+      dirs.forEach(([s,col])=>{ const r=rays[ri++]; if(!r) return; r.visible=true; const ys=s/sw*10; const a=r.geometry.attributes.position.array; a[0]=0;a[1]=0.5;a[2]=0;a[3]=24;a[4]=0.5;a[5]=-ys; r.geometry.attributes.position.needsUpdate=true; r.material.color.setHex(col); });
+    }
+    const xs=[],ys=[]; for(let i=0;i<=1200;i++){ const s=-sw+2*sw*i/1200; xs.push(s); ys.push(Iof(s,p)); }
+    S.plots.i.draw({xmin:-sw,xmax:sw,ymin:0,ymax:1.05,series:[{x:xs,y:ys,color:'#0072c6'}]});
+    const lamm=p.lam*1e-9; const s1=p.mode==='slit'?lamm/(p.a*1e-6):lamm/(p.dd*1e-6); const th1=Math.asin(Math.min(1,s1));
+    S.setRO('t1',(th1*180/Math.PI).toFixed(3)); S.setRO('w',(2*Math.asin(Math.min(1,lamm/(p.a*1e-6)))*180/Math.PI).toFixed(3)+' (2θ₁ саңылау)');
+    S.setRO('mm',p.mode==='grating'?'m_max = '+Math.floor(p.dd*1e-6/lamm):'—'); S.setRO('ang',p.mode==='grating'?(1/(p.dd*Math.cos(th1))).toFixed(4):'—');
+    S.tag(p.mode==='slit'?'Бір саңылау: a = '+p.a+' мкм':'Дифракциялық тор: d = '+p.dd+' мкм, N = '+p.N);
+  }
+});
+</script></body></html>

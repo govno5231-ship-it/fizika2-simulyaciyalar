@@ -1,0 +1,58 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Сыртқы фотоэффект</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+const HC=1239.84193, HEV=4.135667696e-15, GAP=14; // эВ·нм ; эВ·с
+const METALS={Cs:1.94,Na:2.28,Zn:4.3,Cu:4.7,Pt:5.65};
+const MN={Cs:'Цезий (Cs)',Na:'Натрий (Na)',Zn:'Мырыш (Zn)',Cu:'Мыс (Cu)',Pt:'Платина (Pt)'};
+let phot=[],els=[],pg,eg,hits=0,wnd=[],emitAcc=0,beam,cath;
+function Ek0(p){ return Math.max(0,HC/p.lam-METALS[p.metal]); }
+function curve(U,Uz,Is){ if(U>=0) return Is; if(U<=-Uz) return 0; return Is*Math.pow(1+U/Uz,2); }
+Sim.init({
+  lecture:'Дәріс 11 · Фотоэффект', title:'Сыртқы фотоэффект: Эйнштейн теңдеуі, ток-кернеу сипаттамасы',
+  formulas:['hν = A + m·v<sub>макс</sub>²/2 &nbsp;(Эйнштейн теңдеуі)','Қызыл шекара: ν<sub>0</sub> = A/h,&nbsp; λ<sub>0</sub> = hc/A','Тоқтатушы кернеу: eU<sub>з</sub> = E<sub>к,макс</sub> = hν − A','E<sub>ф</sub> = hν = hc/λ'],
+  symbols:'A — электронның металдан шығу жұмысы, h — Планк тұрақтысы, ν — жиілік, U<sub>з</sub> — тоқтатушы кернеу, E<sub>к,макс</sub> — электрондардың максимал кинетикалық энергиясы.',
+  controls:[
+    {id:'metal',type:'select',label:'Катод металы',value:'Na',options:Object.keys(METALS).map(k=>[k,MN[k]+', A = '+METALS[k]+' эВ'])},
+    {id:'lam',label:'Жарық толқын ұзындығы λ',min:100,max:700,step:5,value:400,unit:'нм',dec:0},
+    {id:'I',label:'Жарық қарқындылығы',min:0,max:100,step:5,value:60,unit:'%',dec:0},
+    {id:'U',label:'Анод кернеуі U',min:-6,max:6,step:0.1,value:0,unit:'В',dec:1}
+  ],
+  readouts:[{id:'E',label:'Фотон энергиясы hν, эВ'},{id:'A',label:'Шығу жұмысы A, эВ'},{id:'Ek',label:'E_к,макс, эВ'},{id:'Uz',label:'U_з, В'},{id:'nu0',label:'ν₀, ·10¹⁴ Гц'},{id:'l0',label:'λ₀ (қызыл шекара), нм'},{id:'cur',label:'Фототок (салыстырмалы)'},{id:'st',label:'Күй'}],
+  plots:[{id:'iu',title:'Вольт-амперлік сипаттама I(U)',xlabel:'U, В',ylabel:'I, салыс. бірлік'},{id:'ek',title:'E_к,макс(ν) — сызықтық тәуелділік',xlabel:'ν, 10¹⁴ Гц',ylabel:'E_к,макс, эВ'}],
+  theory:'<p>Жарық кванттардан (фотондардан) тұрады. Бір фотон бір электронға өз энергиясын береді. Егер hν &lt; A болса, қарқындылық қанша үлкен болса да, фотоэффект болмайды. Қарқындылықты арттырғанда электрондар саны (қаныққан ток) артады, ал E<sub>к,макс</sub> өзгермейді — ол тек ν-ға тәуелді.</p><p>I(U) қисығы — қарапайым сызбалық үлгі: теріс кернеуде ток U<sub>з</sub>-де нөлге дейін азаяды.</p>',
+  result:'<b>Тексеріңіз:</b> 1) λ-ны λ₀-ден асыратындай үлкейтсеңіз, фотоэлектрондар жоқ. 2) Қарқындылықты арттырсаңыз U<sub>з</sub> өзгермейді. 3) Металды ауыстырсаңыз E<sub>к,макс</sub>(ν) түзуінің көлбеуі (h) бірдей, ал ν₀ ығысады.',
+  camera:{r:30,th:1.2,ph:0.75,target:[7,3,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(36,-1));
+    cath=new THREE.Mesh(new THREE.BoxGeometry(0.6,7,5),new THREE.MeshPhongMaterial({color:0xcc9966})); cath.position.set(-0.3,3,0); scene.add(cath);
+    const an=new THREE.Mesh(new THREE.BoxGeometry(0.6,7,5),new THREE.MeshPhongMaterial({color:0x889aaa})); an.position.set(GAP+0.3,3,0); scene.add(an);
+    const bulb=new THREE.Mesh(new THREE.CylinderGeometry(4.6,4.6,GAP+3,32,1,true),new THREE.MeshBasicMaterial({color:0x88bbff,transparent:true,opacity:0.08,side:2})); bulb.rotation.z=Math.PI/2; bulb.position.set(GAP/2,3,0); scene.add(bulb);
+    const l1=Sim.label('катод (−)',{size:0.9}); l1.position.set(-0.3,7.5,0); scene.add(l1); const l2=Sim.label('анод',{size:0.9}); l2.position.set(GAP+0.3,7.5,0); scene.add(l2);
+    pg=new THREE.Group(); eg=new THREE.Group(); scene.add(pg,eg);
+  },
+  reset(c){ phot.forEach(o=>c.scene.remove(o.m)); els.forEach(o=>c.scene.remove(o.m)); phot=[];els=[];hits=0;wnd=[]; },
+  frame(dt,c,run){
+    const S=c.S,p=S.params,THREE=c.THREE; const A=METALS[p.metal], Eph=HC/p.lam, ek=Math.max(0,Eph-A), Uz=ek; const col=Sim.wavelengthRGB(p.lam);
+    cath.material.color.set(p.metal==='Cs'?0xd4b86a:p.metal==='Cu'?0xb87333:0xaaaaaa);
+    if(run){ S.t+=dt;
+      // фотондар
+      emitAcc+=dt*p.I*0.35; while(emitAcc>=1){ emitAcc-=1; const m=new THREE.Mesh(new THREE.SphereGeometry(0.2,8,6),new THREE.MeshBasicMaterial({color:new THREE.Color(col[0],col[1],col[2])})); const z=(Math.random()-0.5)*4, y=3+(Math.random()-0.5)*5; m.position.set(14+8,y+4,z); pg.add(m); phot.push({m,y,z,t:0,vx:-9,vy:-4}); }
+      phot.forEach(o=>{ o.m.position.x+=o.vx*dt; o.m.position.y+=o.vy*dt; if(o.m.position.x<=0){ o.dead=true; if(ek>0){ const sp=Math.sqrt(Math.random()); const e0=ek*sp*sp; const m=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,6),new THREE.MeshBasicMaterial({color:0x66ccff})); m.position.set(0.1,o.m.position.y,o.m.position.z); eg.add(m); els.push({m,x:0.1,e0,dir:1,vy:(Math.random()-0.5)*0.4}); } } });
+      phot.filter(o=>o.dead).forEach(o=>pg.remove(o.m)); phot=phot.filter(o=>!o.dead);
+      els.forEach(o=>{ const E=o.e0+p.U*o.x/GAP; if(o.dir>0&&E<=0.001) o.dir=-1; const sp=4.5*Math.sqrt(Math.max(E,0.02)); o.x+=o.dir*sp*dt; o.m.position.x=o.x; o.m.position.y+=o.vy*dt;
+        if(o.x>=GAP){ o.dead=true; hits++; wnd.push(S.t); } else if(o.x<0){ o.dead=true; } });
+      els.filter(o=>o.dead).forEach(o=>eg.remove(o.m)); els=els.filter(o=>!o.dead); while(wnd.length&&wnd[0]<S.t-2) wnd.shift(); }
+    const Is=ek>0?p.I/100:0; const meas=wnd.length/2; // электр/с (өлшенген)
+    const us=[],is=[]; for(let u=-6;u<=6.001;u+=0.1){ us.push(u); is.push(ek>0?curve(u,Uz,Is):0); }
+    S.plots.iu.draw({xmin:-6,xmax:6,ymin:0,ymax:1.05,series:[{x:us,y:is,color:'#0072c6'}],markers:[{x:p.U,y:ek>0?curve(p.U,Uz,Is):0}],vlines:ek>0?[{x:-Uz}]:[]});
+    const nx=[],ny=[]; for(let nu=0;nu<=30;nu+=0.5){ nx.push(nu); ny.push(Math.max(0,HEV*nu*1e14-A)); }
+    const cx=[],cy=[]; Object.keys(METALS).forEach(k=>{}); const nu=c0nu(p.lam);
+    S.plots.ek.draw({xmin:0,xmax:30,ymin:0,ymax:Math.max(2,HEV*30e14-1.94),series:[{x:nx,y:ny,color:'#d6232a',label:MN[p.metal]}],markers:[{x:nu,y:ek}]});
+    S.setRO('E',Eph.toFixed(3)); S.setRO('A',A.toFixed(2)); S.setRO('Ek',ek.toFixed(3)); S.setRO('Uz',Uz.toFixed(3)); S.setRO('nu0',(A/HEV/1e14).toFixed(3)); S.setRO('l0',(HC/A).toFixed(1));
+    S.setRO('cur',meas.toFixed(1)+' эл/с'); S.setRO('st',ek>0?(p.U< -Uz?'ток жоқ (U<−U_з)':'фотоэффект бар'):'hν < A: фотоэффект жоқ'); S.tag('λ = '+p.lam+' нм · hν = '+Eph.toFixed(2)+' эВ');
+  }
+});
+function c0nu(l){ return 2.99792458e8/(l*1e-9)/1e14; }
+</script></body></html>

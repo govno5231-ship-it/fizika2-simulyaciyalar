@@ -1,0 +1,44 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Комптон эффектісі</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+const HC=1239.84193e3, MC2=510998.95, LC=2.42631023; // эВ·пм ; эВ ; пм
+let a0,a1,a2,el,ph0,ph1,tr;
+function calc(p){ const th=p.th*Math.PI/180, l0=p.l0, dl=LC*(1-Math.cos(th)), l1=l0+dl; const E0=HC/l0, E1=HC/l1, T=E0-E1; const al=E0/MC2; const phi=Math.atan2(1,(1+al)*Math.tan(th/2)); // cot φ=(1+α)tg(θ/2)
+  const p0=E0, p1=E1, pe=Math.sqrt(T*T+2*T*MC2); // pc, эВ
+  const px=p0-p1*Math.cos(th)-pe*Math.cos(phi), py=-p1*Math.sin(th)+pe*Math.sin(phi); // фотон шашырау +y, электрон −y... теңестіру
+  return {th,dl,l1,E0,E1,T,phi:(p.th>=179.99?0:phi),pe,res:Math.hypot(px,py)/Math.max(p0,1)}; }
+Sim.init({
+  lecture:'Дәріс 11 · Комптон эффектісі', title:'Комптон эффектісі: рентген фотонының электроннан серпімді шашырауы',
+  formulas:['Δλ = λ′ − λ = λ<sub>C</sub>(1 − cos θ) = 2λ<sub>C</sub>sin²(θ/2)','λ<sub>C</sub> = h/(m<sub>e</sub>c) = 2,426·10⁻¹² м','E<sub>к</sub> = hν − hν′ (электронның кинетикалық энергиясы)','ctg φ = (1 + hν/m<sub>e</sub>c²)·tg(θ/2)'],
+  symbols:'θ — фотонның шашырау бұрышы, φ — электронның ұшып шығу бұрышы, λ<sub>C</sub> — Комптондық толқын ұзындығы.',
+  controls:[{id:'l0',label:'Түскен фотон толқын ұзындығы λ',min:1,max:100,step:0.5,value:20,unit:'пм',dec:1},{id:'th',label:'Шашырау бұрышы θ',min:0,max:180,step:1,value:90,unit:'°',dec:0}],
+  readouts:[{id:'dl',label:'Δλ, пм'},{id:'l1',label:'λ′, пм'},{id:'E0',label:'hν, кэВ'},{id:'E1',label:'hν′, кэВ'},{id:'T',label:'Электрон энергиясы E_к, кэВ'},{id:'phi',label:'Электрон бұрышы φ, °'},{id:'mom',label:'Импульс балансы қатесі'}],
+  plots:[{id:'a',title:'Δλ(θ) — түскен λ-ға тәуелсіз',xlabel:'θ, °',ylabel:'Δλ, пм'},{id:'b',title:'E_к электрон және hν′ фотон энергиясы (θ бойынша)',xlabel:'θ, °',ylabel:'энергия, кэВ'}],
+  theory:'<p>Рентген фотоны тыныштықтағы (еркін) электронмен серпімді соқтығысады. Энергия мен импульстің сақталу заңдарынан шашыраған фотонның толқын ұзындығы артады. Өзгеріс Δλ тек θ бұрышына тәуелді және түскен λ-ға тәуелді емес.</p><p>Тек толқындық теория (классикалық) бұл эффектіні түсіндіре алмайды — Комптон эффектісі жарықтың корпускулалық табиғатының дәлелі.</p>',
+  result:'<b>Тексеріңіз:</b> θ = 0° — Δλ = 0; θ = 90° — Δλ = λ<sub>C</sub> ≈ 2,43 пм; θ = 180° — Δλ = 2λ<sub>C</sub> ≈ 4,85 пм (максимум). Импульс балансының қателігі ≈ 0 — сақталу заңы орындалады.',
+  camera:{r:18,th:0.9,ph:0.2,target:[0,0,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(24,-0.5));
+    el=new THREE.Mesh(new THREE.SphereGeometry(0.5,20,14),new THREE.MeshPhongMaterial({color:0x4a9aff})); scene.add(el);
+    a0=Sim.arrow(0xffee66,7,0.8,0.4); a1=Sim.arrow(0xff8844,7,0.8,0.4); a2=Sim.arrow(0x66aaff,5,0.8,0.4); scene.add(a0,a1,a2);
+    const l=Sim.label('электрон',{size:0.8}); l.position.set(0,-1.5,0); scene.add(l);
+    ph0=new THREE.Mesh(new THREE.SphereGeometry(0.25,10,8),new THREE.MeshBasicMaterial({color:0xffee66})); ph1=new THREE.Mesh(new THREE.SphereGeometry(0.25,10,8),new THREE.MeshBasicMaterial({color:0xff8844})); scene.add(ph0,ph1); },
+  reset(c){},
+  frame(dt,c,run){
+    const S=c.S,p=S.params,THREE=c.THREE; if(run) S.t+=dt; const q=calc(p); const cyc=(S.t%3)/3;
+    a0.position.set(-8,0,0); a0.setDirection(new THREE.Vector3(1,0,0)); a0.setLength(8,0.8,0.4);
+    const th=q.th, ph=q.phi; const L1=7*Math.min(1.2,q.E1/q.E0+0.15), L2=2+4*Math.min(1,q.T/q.E0*3);
+    a1.position.set(0,0,0); a1.setDirection(new THREE.Vector3(Math.cos(th),0,-Math.sin(th))); a1.setLength(L1,0.8,0.4);
+    a2.position.set(0,0,0); a2.setDirection(new THREE.Vector3(Math.cos(ph),0,Math.sin(ph))); a2.setLength(Math.max(0.3,L2),0.8,0.4);
+    // фотонның қозғалысы
+    if(cyc<0.5){ ph0.visible=true; ph1.visible=false; ph0.position.set(-8+cyc*2*8,0,0); el.position.set(0,0,0); } else { ph0.visible=false; ph1.visible=true; const u=(cyc-0.5)*2; ph1.position.set(Math.cos(th)*L1*u,0,-Math.sin(th)*L1*u); el.position.set(Math.cos(ph)*L2*u*0.6,0,Math.sin(ph)*L2*u*0.6); }
+    const xs=[],dl=[],T=[],E1=[]; for(let t=0;t<=180;t+=2){ xs.push(t); dl.push(LC*(1-Math.cos(t*Math.PI/180))); const E0=HC/p.l0, l1=p.l0+LC*(1-Math.cos(t*Math.PI/180)); E1.push(HC/l1/1e3); T.push((E0-HC/l1)/1e3); }
+    S.plots.a.draw({xmin:0,xmax:180,ymin:0,ymax:5.2,series:[{x:xs,y:dl,color:'#0072c6'}],markers:[{x:p.th,y:q.dl}]});
+    S.plots.b.draw({xmin:0,xmax:180,series:[{x:xs,y:E1,color:'#e08a00',label:'hν′'},{x:xs,y:T,color:'#1aa6cc',label:'E_к'}],markers:[{x:p.th,y:q.E1/1e3},{x:p.th,y:q.T/1e3}]});
+    S.setRO('dl',q.dl.toFixed(4)); S.setRO('l1',q.l1.toFixed(4)); S.setRO('E0',(q.E0/1e3).toFixed(3)); S.setRO('E1',(q.E1/1e3).toFixed(3)); S.setRO('T',(q.T/1e3).toFixed(4)); S.setRO('phi',(q.phi*180/Math.PI).toFixed(2)); S.setRO('mom',q.res.toExponential(1));
+    S.tag('θ = '+p.th+'° · Δλ = '+q.dl.toFixed(3)+' пм');
+  }
+});
+</script></body></html>

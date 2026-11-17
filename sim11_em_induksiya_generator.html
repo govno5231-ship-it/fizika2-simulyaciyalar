@@ -1,0 +1,50 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Электрмагниттік индукция: айнымалы ток генераторы</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+let loop,nArrow,curArrows=[],bArrows=[];
+Sim.init({
+  lecture:'Дәріс 1 · Электрмагниттік индукция', title:'Фарадей заңы: біртекті магнит өрісінде айналатын рамка (генератор)',
+  formulas:['Φ = B·S·N·cos(ωt)&nbsp; (ағын ілінісуі)','ε<sub>i</sub> = −dΦ/dt = N·B·S·ω·sin(ωt)','ε<sub>макс</sub> = NBSω = 2πνNBS,&nbsp; ε<sub>әсер</sub> = ε<sub>макс</sub>/√2','Ленц ережесі: индукциялық ток өзін тудырған өзгеріске қарсы әсер етеді'],
+  symbols:'B — магнит индукциясы, S — рамка ауданы, N — орам саны, ω — айналу циклдік жиілігі, Φ — магнит ағыны, ε<sub>i</sub> — индукцияның ЭҚК-і.',
+  controls:[
+    {id:'B',label:'Магнит индукциясы B',min:10,max:500,step:10,value:200,unit:'мТл',dec:0},
+    {id:'S',label:'Рамка ауданы S',min:10,max:200,step:5,value:100,unit:'см²',dec:0},
+    {id:'N',label:'Орам саны N',min:1,max:500,step:1,value:100,unit:'',dec:0},
+    {id:'nu',label:'Айналу жиілігі ν',min:1,max:60,step:1,value:50,unit:'Гц',dec:0}
+  ],
+  readouts:[{id:'Phi',label:'Φ(t) ағыны, мВб'},{id:'e',label:'ε(t), В'},{id:'em',label:'ε_макс, В'},{id:'ee',label:'ε_әсер, В'},{id:'T',label:'Период T, мс'},{id:'dir',label:'Ток бағыты'}],
+  plots:[{id:'p',title:'Магнит ағыны Φ(t) және ЭҚК ε(t)',xlabel:'t / T (периодтар)',ylabel:'Φ/Φ_макс, ε/ε_макс'}],
+  theory:'<p>Магнит ағыны өзгергенде тұйық контурда индукция ЭҚК-і пайда болады (Фарадей заңы). Рамка B-ға перпендикуляр орналасқанда (θ = 0) ағын ең үлкен, ал ЭҚК нөлге тең; рамка B-мен параллель болғанда ағын нөл, ал ЭҚК максимал.</p><p>Көрнекілік үшін айналу баяулатылған (0,4 айн/с), ал графиктер және мәндер нақты ν жиілігіне сай есептеледі.</p>',
+  result:'<b>Бақылау:</b> N, B, S немесе ν-ны екі есе арттырса, ε<sub>макс</sub> екі есе артады. ЭҚК-тің фазасы ағынның фазасынан π/2-ге озады (ε ~ sin, Φ ~ cos). Тұрақты магнит өрісінде рамканы айналдыру — айнымалы ток генераторының жұмыс принципі.',
+  camera:{r:14,th:1.05,ph:0.9,target:[0,0,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(16,-4));
+    const mN=new THREE.Mesh(new THREE.BoxGeometry(1.5,5,5),new THREE.MeshPhongMaterial({color:0xd6232a})); mN.position.set(-5.5,0,0); const mS=new THREE.Mesh(new THREE.BoxGeometry(1.5,5,5),new THREE.MeshPhongMaterial({color:0x2a6fd6})); mS.position.set(5.5,0,0); scene.add(mN,mS);
+    const a=Sim.label('N',{size:1.5}); a.position.set(-5.5,3.6,0); scene.add(a); const b=Sim.label('S',{size:1.5}); b.position.set(5.5,3.6,0); scene.add(b);
+    for(let i=-1;i<=1;i++) for(let j=-1;j<=1;j++){ const ar=Sim.arrow(0x99bbdd,8,0.5,0.25); ar.position.set(-4.5,i*1.4,j*1.4); scene.add(ar); }
+    loop=new THREE.Group(); scene.add(loop);
+    const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-1.6,-1.6,0),new THREE.Vector3(1.6,-1.6,0),new THREE.Vector3(1.6,1.6,0),new THREE.Vector3(-1.6,1.6,0),new THREE.Vector3(-1.6,-1.6,0)]);
+    loop.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:0xffcc33,linewidth:3})));
+    const pl=new THREE.Mesh(new THREE.PlaneGeometry(3.2,3.2),new THREE.MeshBasicMaterial({color:0xffcc33,transparent:true,opacity:0.2,side:2})); loop.add(pl);
+    nArrow=Sim.arrow(0x66ff99,2.5,0.4,0.25); nArrow.setDirection(new THREE.Vector3(0,0,1)); loop.add(nArrow);
+    const axis=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,7,8),new THREE.MeshBasicMaterial({color:0xaaaaaa})); loop.parent.add(axis);
+    const nl=Sim.label('n (нормаль)',{size:0.8,color:'#66ff99'}); nl.position.set(0,0,3.3); loop.add(nl); loop.userData.nl=nl;
+    for(let i=0;i<4;i++){ const ar=Sim.arrow(0xff66cc,1,0.35,0.2); loop.add(ar); curArrows.push(ar); }
+  },
+  reset(c){},
+  frame(dt,c,run){
+    const S=c.S,p=S.params; if(run) S.t+=dt; const vis=0.4; const al=2*Math.PI*vis*S.t; const th=al+Math.PI/2; const nT=al/(2*Math.PI);
+    loop.rotation.y=th; // n=(sin th,0,cos th); B=(1,0,0): cos(n,B)=sin th=cos(al)
+    const Bt=p.B*1e-3, Sm=p.S*1e-4, w=2*Math.PI*p.nu; const em=p.N*Bt*Sm*w; const Pm=Bt*Sm*p.N*1e3; // Φ_макс, мВб
+    const Phi=Pm*Math.cos(al), epsSigned=em*Math.sin(al); const sg=Math.sign(epsSigned)||0;
+    const pts=[[1.9,1.9],[-1.9,1.9],[-1.9,-1.9],[1.9,-1.9]]; const dirs=[[-1,0],[0,-1],[1,0],[0,1]];
+    curArrows.forEach((ar,i)=>{ ar.visible=Math.abs(epsSigned)>0.03*em; ar.position.set(pts[i][0],pts[i][1],0.01); ar.setDirection(new THREE.Vector3(dirs[i][0]*sg,dirs[i][1]*sg,0)); ar.setLength(0.9,0.35,0.2); });
+    const xs=[],fy=[],e=[]; for(let i=0;i<=300;i++){ const q=3*i/300; xs.push(q); fy.push(Math.cos(2*Math.PI*q)); e.push(Math.sin(2*Math.PI*q)); }
+    S.plots.p.draw({xmin:0,xmax:3,ymin:-1.15,ymax:1.15,series:[{x:xs,y:fy,color:'#0072c6',label:'Φ/Φ_макс'},{x:xs,y:e,color:'#d6232a',label:'ε/ε_макс'}],markers:[{x:nT%3,y:Math.cos(al)},{x:nT%3,y:Math.sin(al)}]});
+    S.setRO('Phi',Phi.toFixed(3)); S.setRO('e',epsSigned.toFixed(3)); S.setRO('em',em.toFixed(3)); S.setRO('ee',(em/Math.SQRT2).toFixed(3)); S.setRO('T',(1000/p.nu).toFixed(2)); S.setRO('dir',sg>0?'n-ге қарағанда сағат тіліне қарсы':sg<0?'n-ге қарағанда сағат тілімен':'ток жоқ');
+    S.tag('α(n,B) = '+(((al*180/Math.PI)%360)).toFixed(0)+'°');
+  }
+});
+</script></body></html>

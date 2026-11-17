@@ -1,0 +1,43 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Математикалық маятник</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+let rod,bob,th=0,om=0,hist=[],arc;
+function agm(a,b){ for(let i=0;i<20;i++){const c=(a+b)/2; b=Math.sqrt(a*b); a=c;} return a; }
+function acc(t,p){ return -(p.g/p.l)*Math.sin(t); }
+Sim.init({
+  lecture:'Дәріс 2 · Тербелістер', title:'Математикалық маятник: нақты және гармониялық жуықтау',
+  formulas:['θ″ + (g/l)·sin θ = 0 &nbsp; → &nbsp; θ″ + ω<sub>0</sub>²θ = 0 &nbsp;(кіші бұрыштар)','T<sub>0</sub> = 2π√(l/g),&nbsp;&nbsp; ω<sub>0</sub> = √(g/l)','E = mgl(1 − cos θ) + ml²θ′²/2'],
+  symbols:'l — жіптің ұзындығы, g — еркін түсу үдеуі, θ — ауытқу бұрышы, T<sub>0</sub> — кіші тербеліс периоды.',
+  controls:[{id:'l',label:'Ұзындық l',min:0.2,max:3,step:0.05,value:1,unit:'м'},{id:'g',label:'Еркін түсу үдеуі g',min:1.6,max:25,step:0.1,value:9.81,unit:'м/с²',dec:2},{id:'a0',label:'Бастапқы бұрыш θ₀',min:1,max:170,step:1,value:20,unit:'°',dec:0}],
+  readouts:[{id:'T0',label:'T₀ = 2π√(l/g), с'},{id:'T',label:'T нақты, с'},{id:'dT',label:'Айырма (T−T₀)/T₀'},{id:'th',label:'θ, °'},{id:'v',label:'Жылдамдық v, м/с'},{id:'E',label:'E/(m), Дж/кг'}],
+  plots:[{id:'a',title:'θ(t): нақты шешім және гармониялық жуықтау',xlabel:'Уақыт t, с',ylabel:'θ, °'}],
+  theory:'<p>Кіші бұрыштарда sin θ ≈ θ, сондықтан тербеліс гармониялық, ал период бұрышқа тәуелді емес. Бастапқы бұрышты үлкейткенде нақты период T₀-ден асады, ал қызыл (нақты) және көк (жуықтау) графиктер ажырай бастайды.</p>',
+  result:'<b>Бақылау:</b> θ₀ = 5° кезінде екі график дерлік сәйкес келеді; θ₀ = 90° кезінде период шамамен 18 %-ға артады; θ₀ → 180° болғанда период шексіздікке ұмтылады.',
+  camera:{r:11,th:1.3,ph:0.5,target:[0,-1.5,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(14,-4.2));
+    const pv=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.2,0.6),new THREE.MeshPhongMaterial({color:0x8899aa})); pv.position.y=0.1; scene.add(pv);
+    rod=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1,8),new THREE.MeshPhongMaterial({color:0xdddddd})); scene.add(rod);
+    bob=new THREE.Mesh(new THREE.SphereGeometry(0.28,24,16),new THREE.MeshPhongMaterial({color:0xe5483d})); scene.add(bob);
+    arc=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0x66ffcc})); scene.add(arc); },
+  reset(c){ const p=c.params; th=p.a0*Math.PI/180; om=0; hist=[]; },
+  onChange(c,id){ if(id==='a0'||id==='l'||id==='g'){ c.S.reset(); } },
+  frame(dt,c,run){
+    const S=c.S,p=S.params; const L=Math.min(p.l,3)*1.6;
+    if(run){ const n=Math.ceil(dt/0.002); const h=dt/n; for(let i=0;i<n;i++){ // RK4
+        const k1t=om,k1o=acc(th,p); const k2t=om+h/2*k1o,k2o=acc(th+h/2*k1t,p); const k3t=om+h/2*k2o,k3o=acc(th+h/2*k2t,p); const k4t=om+h*k3o,k4o=acc(th+h*k3t,p);
+        th+=h/6*(k1t+2*k2t+2*k3t+k4t); om+=h/6*(k1o+2*k2o+2*k3o+k4o); S.t+=h; hist.push({t:S.t,th:th}); } }
+    const T0=2*Math.PI*Math.sqrt(p.l/p.g), a0=p.a0*Math.PI/180, T=T0/agm(1,Math.cos(a0/2)), w0=Math.sqrt(p.g/p.l);
+    const bx=L*Math.sin(th), by=-L*Math.cos(th); bob.position.set(bx,by,0); rod.position.set(bx/2,by/2,0); rod.scale.y=L; rod.rotation.z=-th;
+    const pts=[]; for(let i=-40;i<=40;i++){ const a=a0*i/40; pts.push(new THREE.Vector3(L*Math.sin(a),-L*Math.cos(a),0)); } arc.geometry.setFromPoints(pts);
+    const t=S.t, Wt=3*T, x0=Math.max(0,t-Wt), x1=Math.max(Wt,t); while(hist.length&&hist[0].t<x0-0.1) hist.shift();
+    const ex=[],ey=[],ax=[],ay=[]; for(let i=0;i<hist.length;i+=Math.max(1,Math.floor(hist.length/300))){ ex.push(hist[i].t); ey.push(hist[i].th*180/Math.PI); ax.push(hist[i].t); ay.push(p.a0*Math.cos(w0*hist[i].t)); }
+    S.plots.a.draw({xmin:x0,xmax:x1,ymin:-Math.max(5,p.a0*1.1),ymax:Math.max(5,p.a0*1.1),series:[{x:ax,y:ay,color:'#0072c6',dash:[6,4],label:'гармониялық'},{x:ex,y:ey,color:'#d6232a',label:'нақты'}]});
+    const E=0.5*p.l*p.l*om*om+p.g*p.l*(1-Math.cos(th));
+    S.setRO('T0',T0.toFixed(3)); S.setRO('T',T.toFixed(3)); S.setRO('dT',((T-T0)/T0*100).toFixed(2)+' %'); S.setRO('th',(th*180/Math.PI).toFixed(1)); S.setRO('v',(Math.abs(om)*p.l).toFixed(3)); S.setRO('E',E.toFixed(4));
+    S.tag('t = '+t.toFixed(2)+' с');
+  }
+});
+</script></body></html>

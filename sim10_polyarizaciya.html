@@ -1,0 +1,66 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Жарық поляризациясы: Малюс және Брюстер заңдары</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+let malus=new THREE.Group(), brew=new THREE.Group(), segs=[], nat=[], P1,P2,P3, bi,br,bt,sGeo;
+const NS=40;
+function mkSeg(n){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(n*2*3),3)); const l=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0xffee66})); l.frustumCulled=false; return l; }
+function mkRay(col){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3)); const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:col})); l.frustumCulled=false; return l; }
+function fres(th,n1,n2){ const s=n1/n2*Math.sin(th); if(s>=1) return {rs:1,rp:1,tt:Math.PI/2}; const tt=Math.asin(s), c1=Math.cos(th), c2=Math.cos(tt); return {rs:((n1*c1-n2*c2)/(n1*c1+n2*c2))**2, rp:((n2*c1-n1*c2)/(n2*c1+n1*c2))**2, tt}; }
+Sim.init({
+  lecture:'Дәріс 9 · Жарық поляризациясы', title:'Жарық поляризациясы: Малюс заңы және Брюстер заңы',
+  formulas:['Малюс заңы: I = I<sub>0</sub>cos²α','Табиғи жарық поляризатордан өткенде: I<sub>1</sub> = I<sub>0</sub>/2','Брюстер заңы: tg θ<sub>Б</sub> = n<sub>2</sub>/n<sub>1</sub>','Брюстер бұрышында шағылған және сынған сәулелер өзара перпендикуляр'],
+  symbols:'I<sub>0</sub> — түскен жарық қарқындылығы, α — поляризатор мен анализатор өстері арасындағы бұрыш, n — сыну көрсеткіші.',
+  controls:[
+    {id:'mode',type:'select',label:'Тәжірибе',value:'malus',options:[['malus','Малюс заңы (поляризатор + анализатор)'],['brew','Брюстер заңы (шағылу және сыну)']]},
+    {id:'al',label:'Анализатор бұрышы α',min:0,max:180,step:1,value:30,unit:'°',dec:0},
+    {id:'n2',label:'Сыну көрсеткіші n₂',min:1.1,max:2.5,step:0.01,value:1.5,unit:''},
+    {id:'th',label:'Түсу бұрышы θ',min:0,max:89,step:1,value:40,unit:'°',dec:0}
+  ],
+  readouts:[{id:'I1',label:'I₁ (поляризатордан кейін)'},{id:'I2',label:'I₂ (анализатордан кейін)'},{id:'tb',label:'θ_Б, °'},{id:'ang',label:'θ_шағ ⟂ θ_сын (∠), °'},{id:'Rp',label:'R_p (∥ жазықтық)'},{id:'Rs',label:'R_s (⟂ жазықтық)'}],
+  plots:[{id:'a',title:'Қарқындылық',xlabel:'бұрыш, °',ylabel:'I / I₀'}],
+  theory:'<p>Табиғи жарықта E векторы барлық бағытта тербеледі. Поляризатор тек бір бағыттағы тербелісті өткізеді (қарқындылық екі есе азаяды). Екінші пластинка (анализатор) α бұрышқа бұрылса, Малюс заңы бойынша I = I₁cos²α.</p><p>Брюстер бұрышымен түскенде шағылған сәуле толық поляризацияланады (p-компонента шағылмайды, R<sub>p</sub> = 0).</p>',
+  result:'<b>Тексеріңіз:</b> α = 0° — максимум, α = 90° — жарық өтпейді; α = 45° кезінде I = I₁/2. Брюстер режимінде n₂ = 1,5 үшін θ<sub>Б</sub> ≈ 56,3°: сол мәнде R<sub>p</sub> нөлге айналады.',
+  camera:{r:26,th:1.2,ph:0.7,target:[6,0,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(30,-4));
+    scene.add(malus); scene.add(brew);
+    const disc=(x,col)=>{ const m=new THREE.Mesh(new THREE.CircleGeometry(3,40),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.35,side:2})); m.rotation.y=Math.PI/2; m.position.set(x,0,0); malus.add(m); const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-3,0),new THREE.Vector3(0,3,0)]),new THREE.LineBasicMaterial({color:0xffffff})); l.position.set(x,0,0); malus.add(l); return l; };
+    P1=disc(6,0x66aaff); P2=disc(14,0xff8866);
+    for(let i=0;i<3;i++){ segs.push(mkSeg(NS)); malus.add(segs[i]); }
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,18),new THREE.MeshBasicMaterial({color:0xffee66})); b.position.set(7,0,0); b.rotation.y=Math.PI/2; b.scale.set(1,1,1); malus.add(b); b.visible=false;
+    for(let i=0;i<NS;i++) nat.push(Math.random()*Math.PI);
+    [['табиғи жарық',0],['поляризатор P',6],['анализатор A',14]].forEach(([t,x])=>{ const s=Sim.label(t,{size:0.9}); s.position.set(x,3.9,0); malus.add(s); });
+    // Брюстер
+    const sur=new THREE.Mesh(new THREE.BoxGeometry(24,4,10),new THREE.MeshPhongMaterial({color:0x3377aa,transparent:true,opacity:0.5})); sur.position.set(0,-2,0); brew.add(sur);
+    bi=mkRay(0xffee66); br=mkRay(0xff5577); bt=mkRay(0x66ff99); const nrm=mkRay(0xaaaaaa); const a=nrm.geometry.attributes.position.array; a[1]=-6; a[4]=8; nrm.geometry.attributes.position.needsUpdate=true; brew.add(bi,br,bt,nrm);
+    const l1=Sim.label('сәуле түскен',{size:0.8}); l1.position.set(-8,6,0); brew.add(l1);
+  },
+  reset(c){},
+  frame(dt,c,run){
+    const S=c.S,p=S.params; if(run) S.t+=dt; const t=S.t; const m=p.mode==='malus'; malus.visible=m; brew.visible=!m;
+    const al=p.al*Math.PI/180;
+    if(m){ P2.rotation.z=0; P2.rotation.set(0,0,-al); P2.position.y=0; P2.geometry.dispose&&0; P2.position.set(14,0,0); // анализатор осі
+      const pa=P2.geometry.attributes.position.array; pa[0]=0;pa[1]=-3*Math.cos(al);pa[2]=-3*Math.sin(al); pa[3]=0;pa[4]=3*Math.cos(al);pa[5]=3*Math.sin(al); P2.rotation.set(0,0,0); P2.geometry.attributes.position.needsUpdate=true; P2.geometry.computeBoundingSphere&&P2.geometry.computeBoundingSphere();
+      const I1=0.5, I2=I1*Math.cos(al)**2; const k=0.9, w=3;
+      const upd=(seg,x0,x1,fn)=>{ const a=seg.geometry.attributes.position.array; for(let i=0;i<NS;i++){ const x=x0+(x1-x0)*i/(NS-1); const [y,z]=fn(i,x); a[i*6]=x;a[i*6+1]=0;a[i*6+2]=0;a[i*6+3]=x;a[i*6+4]=y;a[i*6+5]=z; } seg.geometry.attributes.position.needsUpdate=true; };
+      upd(segs[0],-10,6,(i,x)=>{ const f=Math.cos(w*t-k*x+nat[i]*5)*1.6; return [f*Math.cos(nat[i]*6.28),f*Math.sin(nat[i]*6.28)]; });
+      upd(segs[1],6,14,(i,x)=>{ const f=Math.cos(w*t-k*x)*1.6*0.7071; return [f,0]; });
+      upd(segs[2],14,22,(i,x)=>{ const f=Math.cos(w*t-k*x)*1.6*0.7071*Math.cos(al); return [f*Math.cos(al),f*Math.sin(al)]; });
+      const xs=[],ys=[]; for(let a=0;a<=180;a++){ xs.push(a); ys.push(0.5*Math.cos(a*Math.PI/180)**2); }
+      S.plots.a.draw({xmin:0,xmax:180,ymin:0,ymax:0.55,series:[{x:xs,y:ys,color:'#0072c6',label:'I₂/I₀ = ½cos²α'}],markers:[{x:p.al,y:I2}]});
+      S.setRO('I1','0,5·I₀'); S.setRO('I2',I2.toFixed(4)+'·I₀'); S.setRO('tb','—'); S.setRO('ang','—'); S.setRO('Rp','—'); S.setRO('Rs','—');
+      S.tag('α = '+p.al+'° · I₂ = '+(I2/I1*100).toFixed(1)+' % I₁');
+    } else {
+      const n1=1,n2=p.n2, th=p.th*Math.PI/180, f=fres(th,n1,n2), tb=Math.atan(n2/n1); const R=8;
+      const setR=(r,x0,y0,x1,y1)=>{ const a=r.geometry.attributes.position.array; a[0]=x0;a[1]=y0;a[2]=0;a[3]=x1;a[4]=y1;a[5]=0; r.geometry.attributes.position.needsUpdate=true; };
+      setR(bi,-R*Math.sin(th),R*Math.cos(th),0,0); setR(br,0,0,R*Math.sin(th),R*Math.cos(th)); setR(bt,0,0,R*Math.sin(f.tt),-R*Math.cos(f.tt));
+      const xs=[],rp=[],rs=[]; for(let a=0;a<=89.5;a+=0.5){ const q=fres(a*Math.PI/180,n1,n2); xs.push(a); rp.push(q.rp); rs.push(q.rs); }
+      S.plots.a.draw({xmin:0,xmax:90,ymin:0,ymax:1,series:[{x:xs,y:rs,color:'#d6232a',label:'R_s'},{x:xs,y:rp,color:'#0072c6',label:'R_p'}],markers:[{x:p.th,y:f.rp},{x:p.th,y:f.rs}],vlines:[{x:tb*180/Math.PI}]});
+      S.setRO('I1','—'); S.setRO('I2','—'); S.setRO('tb',(tb*180/Math.PI).toFixed(2)); S.setRO('ang',(180-p.th-f.tt*180/Math.PI).toFixed(1)); S.setRO('Rp',f.rp.toFixed(4)); S.setRO('Rs',f.rs.toFixed(4));
+      S.tag('θ = '+p.th+'° · θ_Б = '+(tb*180/Math.PI).toFixed(1)+'°');
+    }
+  }
+});
+</script></body></html>

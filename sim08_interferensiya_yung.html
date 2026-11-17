@@ -1,0 +1,60 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Жарық интерференциясы: Юнг тәжірибесі</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+let sm, screenTex, screenCv, scrMesh, U;
+const YW=12; // экран терезесі ±12 мм
+function inten(yMM,p){ const lam=p.lam*1e-9, d=p.d*1e-3, L=p.L, y=yMM*1e-3; const r1=Math.hypot(L,y-d/2), r2=Math.hypot(L,y+d/2); const dl=r2-r1; return Math.cos(Math.PI*dl/lam)**2; }
+function drawScreen(p){ const cv=screenCv, g=cv.getContext('2d'); const rgb=Sim.wavelengthRGB(p.lam); const W=cv.width,H=cv.height; const img=g.createImageData(W,H);
+  for(let j=0;j<H;j++){ const y=YW-2*YW*j/(H-1); const I=inten(y,p); for(let i=0;i<W;i++){ const o=(j*W+i)*4; img.data[o]=rgb[0]*255*I; img.data[o+1]=rgb[1]*255*I; img.data[o+2]=rgb[2]*255*I; img.data[o+3]=255; } }
+  g.putImageData(img,0,0); screenTex.needsUpdate=true; }
+Sim.init({
+  lecture:'Дәріс 8 · Жарық интерференциясы', title:'Жарық интерференциясы: Юнг тәжірибесі',
+  formulas:['Δ = r<sub>2</sub> − r<sub>1</sub> ≈ d·y/L','Максимум: Δ = ±mλ,&nbsp; минимум: Δ = ±(m + ½)λ,&nbsp; m = 0, 1, 2, …','Жолақ ені: Δy = λL/d','I = 4I<sub>0</sub>cos²(πΔ/λ)'],
+  symbols:'λ — толқын ұзындығы, d — саңылаулар арасы, L — экранға дейінгі қашықтық, y — экрандағы координата, Δ — жол айырымы.',
+  controls:[
+    {id:'lam',label:'Толқын ұзындығы λ',min:400,max:700,step:5,value:550,unit:'нм',dec:0},
+    {id:'d',label:'Саңылаулар арасы d',min:0.1,max:1,step:0.01,value:0.3,unit:'мм'},
+    {id:'L',label:'Экранға дейін L',min:0.5,max:3,step:0.1,value:1.5,unit:'м',dec:1},
+    {id:'sp',label:'Анимация жылдамдығы',min:0.1,max:2,step:0.1,value:1,unit:'×',dec:1}
+  ],
+  readouts:[{id:'dy',label:'Жолақ ені Δy, мм'},{id:'th',label:'1-ші максимум бұрышы, °'},{id:'m',label:'Экранда жолақ саны'},{id:'c',label:'Орталық (m=0)'}],
+  plots:[{id:'i',title:'Экрандағы қарқындылық I(y)',xlabel:'y, мм',ylabel:'I / I_макс'}],
+  theory:'<p>Екі когерентті толқын жолының айырымы λ-ға еселі болса, бірін-бірі күшейтеді (жарық жолағы), λ/2-ге тақ еселі болса — әлсіретеді (қараңғы жолақ). Юнг тәжірибесінде екі саңылау бір көзден жарықтанғандықтан когерентті.</p><p>Жоғарыдағы «су бетіндегі» толқындық сурет схемалық (масштабталмаған): саңылаулар арасы мен толқын ұзындығының қатынасы λ/d-ге пропорционал. Оң жақ экрандағы сурет нақты формула бойынша есептелген.</p>',
+  result:'<b>Бақылау:</b> λ немесе L-ды арттырсақ, жолақтар кеңейеді (Δy = λL/d); d-ны арттырсақ — тарылады. Орталық максимум әрқашан y = 0 нүктесінде, өйткені Δ = 0.',
+  camera:{r:30,th:0.75,ph:1.2,target:[5,0,0]},
+  setup(c){ const {scene,THREE}=c; U={t:{value:0},lamv:{value:2},dv:{value:4},col:{value:new THREE.Color(0,1,0)}};
+    const mat=new THREE.ShaderMaterial({uniforms:U,side:2,vertexShader:'varying vec2 vp; void main(){vp=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+      fragmentShader:'uniform float t,lamv,dv; uniform vec3 col; varying vec2 vp; void main(){ if(vp.x<0.2){ gl_FragColor=vec4(0.04,0.1,0.2,1.0); return;} float k=6.2831853/lamv; float w=k*1.0; float r1=length(vp-vec2(0.0,dv*0.5)); float r2=length(vp-vec2(0.0,-dv*0.5)); float u=cos(k*r1-w*t)/sqrt(r1+0.5)+cos(k*r2-w*t)/sqrt(r2+0.5); float a=0.5+0.5*u*0.85; gl_FragColor=vec4(col*a*1.1+vec3(0.02,0.05,0.1),1.0);}'});
+    const pl=new THREE.Mesh(new THREE.PlaneGeometry(26,20,1,1),mat); pl.rotation.x=-Math.PI/2; pl.position.set(13,-0.05,0); scene.add(pl);
+    // PlaneGeometry xy -> rotated: vp.x = world x - 13 ... шешім: вершина координаталарын жылжыту
+    pl.geometry.translate(0,0,0); pl.position.set(0,-0.05,0); pl.geometry.translate(13,0,0);
+    const bm=new THREE.MeshPhongMaterial({color:0x888888});
+    sm={}; sm.b1=new THREE.Mesh(new THREE.BoxGeometry(0.5,1.2,1),bm); sm.b2=new THREE.Mesh(new THREE.BoxGeometry(0.5,1.2,1),bm); sm.b3=new THREE.Mesh(new THREE.BoxGeometry(0.5,1.2,1),bm); scene.add(sm.b1,sm.b2,sm.b3);
+    screenCv=document.createElement('canvas'); screenCv.width=16; screenCv.height=800; screenTex=new THREE.CanvasTexture(screenCv);
+    scrMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.6,20),new THREE.MeshBasicMaterial({map:screenTex,side:2})); scrMesh.rotation.x=-Math.PI/2; scrMesh.position.set(25.2,0.02,0); scene.add(scrMesh);
+
+    const lb=Sim.label('екі саңылау',{size:0.9}); lb.position.set(0,1.8,-9); scene.add(lb); const lb2=Sim.label('экран',{size:0.9}); lb2.position.set(24,1.8,-9); scene.add(lb2);
+  },
+  reset(c){},
+  frame(dt,c,run){
+    const S=c.S,p=S.params; if(run) S.t+=dt*p.sp; const K=300; const dv=4; let lamv=dv*K*(p.lam*1e-9)/(p.d*1e-3); lamv=Math.max(0.5,Math.min(3.5,lamv));
+    U.t.value=S.t; U.lamv.value=lamv; U.dv.value=dv; const rgb=Sim.wavelengthRGB(p.lam); U.col.value.setRGB(rgb[0],rgb[1],rgb[2]);
+    // тосқауыл: z осі бойымен (2D жазық: vp.y = -z)
+    const z1=dv/2, z2=-dv/2, gap=0.35; const top=10, // жоғарғы шеті
+      mid1=(z1+gap+top)/2, len1=top-(z1+gap), len3=top-(-z2+gap); sm.b1.scale.set(1,1,len1); sm.b1.position.set(0,0.3,-(mid1)); // z=-vp.y
+    sm.b1.position.set(0,0.3,-(z1+gap+top)/2); sm.b1.scale.z=top-(z1+gap);
+    sm.b2.position.set(0,0.3,0); sm.b2.scale.z=Math.max(0.05,(z1-gap)-(z2+gap));
+    sm.b3.position.set(0,0.3,(top+(-z2+gap)*-1)/2*0+((-(z2-gap))+top)/2); sm.b3.scale.z=top-(-(z2-gap));
+    // экран суреті
+    if(!S._last||S._last.lam!==p.lam||S._last.d!==p.d||S._last.L!==p.L){ drawScreen(p); S._last={lam:p.lam,d:p.d,L:p.L}; }
+    const dy=p.lam*1e-9*p.L/(p.d*1e-3)*1e3; const th1=Math.asin(Math.min(1,p.lam*1e-9/(p.d*1e-3)))*180/Math.PI;
+    const ys=[],Is=[]; for(let i=0;i<=800;i++){ const y=-YW+2*YW*i/800; ys.push(y); Is.push(inten(y,p)); }
+    S.plots.i.draw({xmin:-YW,xmax:YW,ymin:0,ymax:1.05,series:[{x:ys,y:Is,color:'#0072c6'}]});
+    S.setRO('dy',dy.toFixed(3)); S.setRO('th',th1.toFixed(4)); S.setRO('m',Math.floor(2*YW/dy)+' (±'+YW+' мм ішінде)'); S.setRO('c','Δ = 0 → жарық');
+    S.tag('λ = '+p.lam+' нм · Δy = '+dy.toFixed(2)+' мм');
+  }
+});
+</script></body></html>

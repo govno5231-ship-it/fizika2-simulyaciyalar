@@ -1,0 +1,48 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Қатты денелердің аймақтық теориясы</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+const kB=8.617333e-5; let eParts=[],hParts=[],gapMesh,cb,vb,efL;
+function ni(Eg,T){ return 2.5e19*Math.pow(T/300,1.5)*Math.exp(-Eg/(2*kB*T)); }
+Sim.init({
+  lecture:'Дәріс 12 · Қатты денелердің аймақтық теориясы', title:'Қатты денелердің аймақтық теориясы: өткізгіш, жартылай өткізгіш, диэлектрик',
+  formulas:['f(E) = 1/[exp((E − E<sub>F</sub>)/kT) + 1] &nbsp;(Ферми–Дирак)','Таза жартылай өткізгіш: E<sub>F</sub> ≈ (E<sub>с</sub> + E<sub>v</sub>)/2','n<sub>i</sub> ∝ T<sup>3/2</sup>·exp(−ΔE/2kT)','σ = e(nμ<sub>n</sub> + pμ<sub>p</sub>)'],
+  symbols:'ΔE (E<sub>g</sub>) — тыйым салынған аймақ ені, E<sub>F</sub> — Ферми деңгейі, E<sub>с</sub> — өткізгіштік аймақ түбі, E<sub>v</sub> — валенттік аймақ төбесі, n<sub>i</sub> — меншікті тасымалдаушылар концентрациясы.',
+  controls:[
+    {id:'pre',type:'select',label:'Дайын үлгі (ΔE мәнін орнатады)',value:'custom',options:[['custom','Өз мәнім'],['met','Металл (аймақтар жабылады)'],['si','Кремний (1,12 эВ)'],['ge','Германий (0,67 эВ)'],['diam','Алмаз (диэлектрик, 5,5 эВ)']]},
+    {id:'Eg',label:'Тыйым салынған аймақ ΔE',min:0,max:6,step:0.01,value:1.12,unit:'эВ'},
+    {id:'T',label:'Температура T',min:50,max:1000,step:10,value:300,unit:'К',dec:0}
+  ],
+  readouts:[{id:'kT',label:'kT, эВ'},{id:'EgkT',label:'ΔE / kT'},{id:'ni',label:'n_i, см⁻³'},{id:'f',label:'f(E_c) — қозу ықтималдығы'},{id:'cls',label:'Түрі'},{id:'sig',label:'σ(T)/σ(300 К) (жуық.)'}],
+  plots:[{id:'f',title:'Ферми–Дирак f(E)',xlabel:'E − E_F, эВ',ylabel:'f(E)'},{id:'n',title:'lg n_i(T) — өткізгіштіктің температураға тәуелділігі',xlabel:'T, К',ylabel:'lg n_i, см⁻³'}],
+  theory:'<p>Кристалда атомдық деңгейлер рұқсат етілген аймақтарға жіктеледі. Металдарда өткізгіштік аймақ жартылай толған (немесе валенттік аймақпен қабаттасады), сондықтан электрондар оңай қозғалады. Жартылай өткізгіште тыйым салынған аймақ шағын (ΔE ≲ 3 эВ): температура артқанда электрондар өткізгіштік аймаққа өтіп, өткізгіштік экспоненциалды артады. Диэлектрикте ΔE үлкен.</p><p>3D сурет: көрнекілік үшін бөлшектер саны логарифмдік шкала бойынша көрсетілген (нақты концентрация оң жақ көрсеткіште).</p>',
+  result:'<b>Бақылау:</b> кремнийде T = 300 К кезінде n<sub>i</sub> ≈ 10¹⁰ см⁻³, ал T = 600 К кезінде ≈ 10¹⁵ см⁻³ (бес ретке артады). Металда T артқанда өткізгіштік (сыртқы тәуелділік) кемиді, ал жартылай өткізгіште артады.',
+  camera:{r:16,th:1.2,ph:0.5,target:[0,3.5,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(20,0));
+    cb=new THREE.Mesh(new THREE.BoxGeometry(9,1.6,3),new THREE.MeshPhongMaterial({color:0x2f7fe0,transparent:true,opacity:0.65})); vb=new THREE.Mesh(new THREE.BoxGeometry(9,1.6,3),new THREE.MeshPhongMaterial({color:0xe5483d,transparent:true,opacity:0.65})); scene.add(cb,vb);
+    gapMesh=new THREE.Mesh(new THREE.BoxGeometry(9,1,3),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.07})); scene.add(gapMesh);
+    efL=new THREE.Mesh(new THREE.BoxGeometry(9.4,0.04,3.4),new THREE.MeshBasicMaterial({color:0x66ff99})); scene.add(efL);
+    for(let i=0;i<40;i++){ const e=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,8),new THREE.MeshBasicMaterial({color:0x66ccff})); scene.add(e); eParts.push({m:e,ph:Math.random()*6.28,x:(Math.random()-0.5)*8,z:(Math.random()-0.5)*2.4,v:(Math.random()-0.5)*2}); const h=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,8),new THREE.MeshBasicMaterial({color:0xff6677})); scene.add(h); hParts.push({m:h,x:(Math.random()-0.5)*8,z:(Math.random()-0.5)*2.4,v:(Math.random()-0.5)*2}); }
+    [['өткізгіштік аймақ',6.2,0x66aaff],['валенттік аймақ',0.2,0xff8877]].forEach(([t,y,col])=>{ const l=Sim.label(t,{size:0.8}); l.position.set(-6.2,y,0); scene.add(l); }); },
+  reset(c){},
+  onChange(c,id){ if(id==='pre'){ const v={met:0,si:1.12,ge:0.67,diam:5.5}[c.params.pre]; if(v!=null) c.S.setControl('Eg',v); } },
+  frame(dt,c,run){
+    const S=c.S,p=S.params; if(run) S.t+=dt; const Eg=p.Eg,T=p.T,kT=kB*T; const metal=Eg<0.05; const gapH=Math.min(4.5,Eg*0.9); // көрнекі биіктік
+    const vy=1.0; vb.position.set(0,vy,0); const cbY=vy+0.8+gapH+0.8; cb.position.set(0,metal?vy+1.2:cbY,0); if(metal) cb.position.y=vy+1.0; gapMesh.position.set(0,vy+0.8+gapH/2,0); gapMesh.scale.y=Math.max(0.01,gapH); gapMesh.visible=!metal;
+    efL.position.y=metal?vy+1.3:vy+0.8+gapH/2;
+    const n=metal?1e22:ni(Eg,T); const fc=metal?0.5:1/(Math.exp((Eg/2)/kT)+1);
+    const lvl=metal?30:Math.max(0,Math.min(30,Math.round((Math.log10(Math.max(n,1))-4)/(22-4)*30*1.4))); // логарифмдік көрнекілік
+    eParts.forEach((o,i)=>{ const on=i<lvl; o.m.visible=on; hParts[i].visible=true; if(on){ o.x+=o.v*dt*(run?1:0); if(Math.abs(o.x)>4.3) o.v*=-1; o.m.position.set(o.x,cb.position.y+Math.sin(S.t*3+o.ph)*0.2,o.z); } });
+    hParts.forEach((o,i)=>{ const on=i<lvl&&!metal; o.m.visible=on; if(on){ o.x+=o.v*dt*(run?1:0); if(Math.abs(o.x)>4.3) o.v*=-1; o.m.position.set(o.x,vy+0.2*Math.sin(S.t*2+i),o.z); } });
+    const xs=[],fs=[]; for(let i=0;i<=300;i++){ const e=-3+6*i/300; xs.push(e); fs.push(1/(Math.exp(e/kT)+1)); }
+    S.plots.f.draw({xmin:-3,xmax:3,ymin:0,ymax:1.05,series:[{x:xs,y:fs,color:'#0072c6'}],vlines:metal?[]:[{x:-Eg/2,color:'#d6232a'},{x:Eg/2,color:'#d6232a'}]});
+    const tx=[],ty=[],ty2=[]; for(let t=50;t<=1000;t+=10){ tx.push(t); ty.push(Math.log10(Math.max(ni(Math.max(Eg,0.05),t),1))); }
+    S.plots.n.draw({xmin:50,xmax:1000,ymin:0,ymax:22,series:[{x:tx,y:metal?tx.map(()=>22):ty,color:'#d6232a'}],markers:[{x:T,y:Math.log10(Math.max(n,1))}]});
+    S.setRO('kT',kT.toFixed(4)); S.setRO('EgkT',(Eg/kT).toFixed(1)); S.setRO('ni',metal?'≈ 10²² (металл)':n.toExponential(2)); S.setRO('f',metal?'0,5 (E_F)':fc.toExponential(2));
+    S.setRO('cls',metal?'өткізгіш (металл)':Eg<=3?'жартылай өткізгіш':'диэлектрик'); S.setRO('sig',metal?'~(300/T) кемиді':(n/ni(Eg,300)).toExponential(2));
+    S.tag('ΔE = '+Eg.toFixed(2)+' эВ · T = '+T+' К');
+  }
+});
+</script></body></html>

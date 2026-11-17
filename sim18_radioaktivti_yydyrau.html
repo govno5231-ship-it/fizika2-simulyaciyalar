@@ -1,0 +1,35 @@
+<!doctype html><html lang="kk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Радиоактивті ыдырау заңы</title><link rel="stylesheet" href="sim.css"></head>
+<body><div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="sim.js"></script>
+<script>
+let nuc=[],alive=[],flash=[],N0=500,hist=[],cube;
+Sim.init({
+  lecture:'Дәріс 15 · Ядролық физика', title:'Радиоактивті ыдырау заңы: N(t) = N₀e^(−λt)',
+  formulas:['N(t) = N<sub>0</sub>·e<sup>−λt</sup>','T<sub>1/2</sub> = ln 2/λ ≈ 0,693/λ,&nbsp; τ = 1/λ','A = −dN/dt = λN = A<sub>0</sub>e<sup>−λt</sup>','Бір ядроның dt ішінде ыдырау ықтималдығы: λ·dt'],
+  symbols:'N — ыдырамаған ядролар саны, λ — ыдырау тұрақтысы, T<sub>1/2</sub> — жартылай ыдырау периоды, A — активтілік (Бк).',
+  controls:[{id:'T',label:'Жартылай ыдырау периоды T₁/₂',min:1,max:20,step:0.5,value:5,unit:'с',dec:1},{id:'N0',label:'Бастапқы ядролар саны N₀',min:100,max:1000,step:50,value:500,unit:'',dec:0}],
+  readouts:[{id:'lam',label:'λ = ln2/T₁/₂, 1/с'},{id:'tau',label:'τ = 1/λ, с'},{id:'N',label:'N(t) (тәжірибе)'},{id:'Nt',label:'N(t) (заң бойынша)'},{id:'A',label:'Активтілік A = λN, Бк'},{id:'half',label:'Өткен T₁/₂ саны'}],
+  plots:[{id:'n',title:'N(t): үлгі және теория',xlabel:'t, с',ylabel:'N'},{id:'l',title:'ln N(t) — түзу сызық, көлбеуі −λ',xlabel:'t, с',ylabel:'ln N'}],
+  theory:'<p>Ыдырау — кездейсоқ процесс: әр ядро үшін уақыт бірлігіндегі ыдырау ықтималдығы λ тұрақты. Үлкен санда статистикалық заң N = N₀e<sup>−λt</sup> орындалады; әрбір T₁/₂ сайын ядролар саны екі есе кемиді.</p><p>Қызыл текшелер — ыдырамаған ядролар, сұр — ыдыраған. N₀-ді кішірейтсеңіз, тәжірибелік қисық теориялық қисықтан көбірек ауытқиды (статистикалық флуктуация).</p>',
+  result:'<b>Тексеріңіз:</b> t = T₁/₂ кезінде N ≈ N₀/2, t = 2T₁/₂ кезінде N ≈ N₀/4. ln N графигі түзу сызық, ал оның көлбеуі −λ-ге тең.',
+  camera:{r:22,th:1.0,ph:0.7,target:[0,3,0]},
+  setup(c){ const {scene,THREE}=c; scene.add(Sim.grid(20,-0.5)); },
+  reset(c){ const {scene,THREE}=c; nuc.forEach(m=>scene.remove(m)); nuc=[]; alive=[]; hist=[]; const n=Math.round(c.params.N0); const side=Math.ceil(Math.cbrt(n)); const sp=0.75;
+    const geo=new THREE.BoxGeometry(0.5,0.5,0.5); for(let i=0;i<n;i++){ const x=i%side, y=Math.floor(i/side)%side, z=Math.floor(i/(side*side)); const m=new THREE.Mesh(geo,new THREE.MeshPhongMaterial({color:0xe5483d,emissive:0x330000})); m.position.set((x-side/2)*sp,y*sp,(z-side/2)*sp); scene.add(m); nuc.push(m); alive.push(true); }
+    c.S._n=n; c.S._acc=0; },
+  onChange(c,id){ if(id==='N0') c.S.reset(); },
+  frame(dt,c,run){
+    const S=c.S,p=S.params; const lam=Math.LN2/p.T; if(run){ S.t+=dt; const prob=1-Math.exp(-lam*dt); for(let i=0;i<nuc.length;i++){ if(alive[i]&&Math.random()<prob){ alive[i]=false; nuc[i].material.color.setHex(0xffffaa); nuc[i].material.emissive.setHex(0xffffaa); flash.push([i,0.25]); } }
+      flash=flash.filter(([i,t])=>{ const nt=t-dt; if(nt<=0){ nuc[i].material.color.setHex(0x55606e); nuc[i].material.emissive.setHex(0x000000); nuc[i].scale.setScalar(0.7); return false; } return true; }); flash.forEach(f=>f[1]-=dt);
+      let N=0; for(let i=0;i<alive.length;i++) if(alive[i]) N++; hist.push({t:S.t,N}); if(hist.length>4000) hist.splice(1,1); }
+    const N=hist.length?hist[hist.length-1].N:nuc.length; const N0=nuc.length; const Nt=N0*Math.exp(-lam*S.t);
+    const tmax=Math.max(4*p.T,S.t*1.05); const tx=[],ty=[],ly=[]; for(let i=0;i<=100;i++){ const t=tmax*i/100; tx.push(t); ty.push(N0*Math.exp(-lam*t)); ly.push(Math.log(N0)-lam*t); }
+    const hs=Math.max(1,Math.floor(hist.length/300)), hx=[],hy=[],hl=[]; for(let i=0;i<hist.length;i+=hs){ hx.push(hist[i].t); hy.push(hist[i].N); hl.push(Math.log(Math.max(hist[i].N,1))); }
+    S.plots.n.draw({xmin:0,xmax:tmax,ymin:0,ymax:N0*1.05,series:[{x:tx,y:ty,color:'#0072c6',dash:[6,4],label:'теория'},{x:hx,y:hy,color:'#d6232a',label:'тәжірибе'}]});
+    S.plots.l.draw({xmin:0,xmax:tmax,ymin:Math.log(N0)-lam*tmax-0.5,ymax:Math.log(N0)+0.3,series:[{x:tx,y:ly,color:'#0072c6',dash:[6,4],label:'−λt'},{x:hx,y:hl,color:'#d6232a',label:'тәжірибе'}]});
+    S.setRO('lam',lam.toFixed(4)); S.setRO('tau',(1/lam).toFixed(3)); S.setRO('N',String(N)); S.setRO('Nt',Nt.toFixed(1)); S.setRO('A',(lam*N).toFixed(2)); S.setRO('half',(S.t/p.T).toFixed(2)); S.tag('t = '+S.t.toFixed(1)+' с · қалған ядролар: '+N+' / '+N0);
+  }
+});
+</script></body></html>
